@@ -62,6 +62,29 @@ for the tuning findings behind these numbers - in particular why model choice
 must be driven by available VRAM, and why the agent needs the *direction* of a
 comfort fix rather than just the PMV value.
 
+## Building models and what the agent changes
+
+The agent does **not** rewrite `.idf` files. EnergyPlus runs inside the Python
+process and setpoints are injected straight into the live solver via
+`set_actuator_value`, re-asserted every zone timestep - so the next timestep's
+physics uses the setpoint the LLM just chose. That is what makes this a closed
+loop rather than a batch of separate runs.
+
+Committed model + result artifacts:
+
+| Path | What it is |
+|---|---|
+| `assets/model.idf` | Instrumented baseline model (source example + Eco-Loop's output requests) |
+| `assets/model_MMDD_MMDD.idf` | Runtime-generated variants with a rewritten `RunPeriod` for representative-period runs |
+| `assets/model_meta.json` | Provenance: source model, weather file, discovered zones, timestep |
+| `outputs/*/agent_decisions.jsonl` | **The agent's full control trail** - setpoints, reasoning, tool calls, latency, per interval |
+| `outputs/*/eplusout.csv` | Per-timestep EnergyPlus results powering the dashboard |
+
+Because the results are committed, a fresh clone can run
+`python main.py dashboard` and see the comparison without re-running anything.
+See [`ARCHITECTURE.md` §2](ARCHITECTURE.md#what-the-agent-actually-modifies-and-what-it-does-not)
+for why runtime injection is used instead of iterative `.idf` regeneration.
+
 ## Prerequisites
 
 1. **EnergyPlus 9.5+** installed locally (https://energyplus.net/downloads).

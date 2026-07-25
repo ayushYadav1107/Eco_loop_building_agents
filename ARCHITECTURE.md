@@ -108,6 +108,43 @@ reason string; the previously active setpoints stay in force. The model sees
 the rejection and can retry - it never has a path to write an invalid value
 into `set_actuator_value`.
 
+### What the agent actually modifies (and what it does not)
+
+This is worth stating explicitly, because there are two very different ways to
+"let an LLM change a building model" and they produce different artifacts.
+
+**What Eco-Loop does: live actuator injection.** The agent never edits an
+`.idf` file. EnergyPlus runs *inside the Python process*, and the agent's
+decisions are written straight into the running solver through the Data
+Exchange API - `set_actuator_value` on the `Zone Temperature Control /
+Cooling Setpoint` and `Heating Setpoint` actuators, re-asserted on **every**
+zone timestep (EnergyPlus actuator overrides do not latch). The very next
+timestep's heat balance is solved using the setpoint the LLM just chose. There
+is no file rewrite, no re-run, and no restart anywhere in the loop.
+
+**What it deliberately does not do: iterative `.idf` regeneration.** The
+alternative pattern - have the LLM rewrite the model file and launch a fresh
+simulation each time - cannot close a loop *within* a simulation. It can only
+compare whole runs after the fact, so it cannot respond to a zone drifting out
+of comfort at 14:00 on day 3. Runtime injection is what makes this a genuine
+closed loop rather than a batch parameter sweep.
+
+The practical consequence is that the "modified building models" this project
+produces are:
+
+| Artifact | What it is |
+|---|---|
+| `assets/model.idf` | The instrumented baseline - the source example model plus the `Output:Variable` / `Output:Meter` / `Output:SQLite` requests Eco-Loop needs. Committed. |
+| `assets/model_MMDD_MMDD.idf` | Runtime-generated variants where `main.py --start/--end` rewrote the `RunPeriod` for a representative-period study. Committed. |
+| `outputs/*/agent_decisions.jsonl` | **The actual record of what the agent changed** - one JSON line per control interval with the chosen setpoints, the model's stated reason, which tools it called, decision latency, and whether the turn was a real LLM decision or a fallback. Committed. |
+
+If you want to see "what the AI did to the building", `agent_decisions.jsonl`
+is the file to read - it is the moment-by-moment control trail, and it is what
+the dashboard's PMV chart and decision table are built from. The baseline run
+writes no such file by construction: it is the same model with the agent
+detached, so the native thermostat schedules run untouched and the comparison
+isolates exactly one variable.
+
 ## 3. Prompt Latency Management
 
 An LLM call inside an EnergyPlus callback is a hard real-time constraint: the

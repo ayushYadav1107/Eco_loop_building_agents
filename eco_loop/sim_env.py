@@ -29,6 +29,12 @@ from eco_loop.state_bus import BUS
 
 DecideFn = Callable[[BuildingState], AgentDecision]
 
+# EnergyPlus KindOfSim value for a weather-file run period. Verified empirically
+# against EnergyPlus 26.1 rather than taken from the enum header, since
+# pyenergyplus does not expose the enum and its docstring for `kind_of_sim` is a
+# copy-paste of `current_environment_num`.
+KIND_RUNPERIOD_WEATHER = 3
+
 
 # --------------------------------------------------------------------------- #
 # Handle bookkeeping
@@ -298,6 +304,28 @@ class EnergyPlusSimulation:
         )
         return True
 
+    def _in_scoring_environment(self, state) -> bool:
+        """True only for the environment whose results we actually report.
+
+        When a model has `SimulationControl / Run Simulation for Sizing Periods
+        = Yes`, EnergyPlus replays the design days as ordinary simulations and
+        this callback fires for them too. Letting the agent actuate during
+        sizing would both waste LLM calls and risk perturbing autosized
+        equipment capacities - which would make the AI run's equipment differ
+        from the baseline's and invalidate the comparison.
+
+        KIND_RUNPERIOD_WEATHER == 3 was verified empirically against
+        EnergyPlus 26.1 (a weather-file run reports kind_of_sim == 3 for every
+        non-warmup timestep). In `-D` mode only design days run at all, so no
+        filtering is needed or wanted.
+        """
+        if self.design_day_only:
+            return True
+        try:
+            return self.api.exchange.kind_of_sim(state) == KIND_RUNPERIOD_WEATHER
+        except Exception:
+            return True  # unknown API shape: do not silently skip the whole run
+
     def _value(self, state, handle: int) -> Optional[float]:
         if handle is None or handle < 0:
             return None
@@ -321,6 +349,8 @@ class EnergyPlusSimulation:
         try:
             ex = self.api.exchange
             if ex.warmup_flag(state):
+                return
+            if not self._in_scoring_environment(state):
                 return
             if not self._handles_ready and not self._resolve_handles(state):
                 return

@@ -7,13 +7,29 @@ __pycache__/
 .venv/
 venv/
 
-# Generated / staged at runtime (see scripts/prepare_model.py, main.py)
-assets/
-outputs/
-
 # Streamlit
 .streamlit/
 
 # OS
 .DS_Store
 Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Building models + results ARE deliverables and are committed on purpose:
+#   assets/*.idf                    baseline + runtime-generated model variants
+#   assets/model_meta.json          provenance (source model, zones, timestep)
+#   assets/weather.epw              weather file, so the repo runs as cloned
+#   outputs/*/eplusout.csv          per-timestep results for the dashboard
+#   outputs/*/agent_decisions.jsonl the agent's full decision trail
+# Everything else EnergyPlus emits is a bulky intermediate and is excluded, so
+# a fresh clone can open the dashboard without re-running the simulations.
+# ---------------------------------------------------------------------------
+outputs/*
+!outputs/*/
+outputs/*/*
+!outputs/*/eplusout.csv
+!outputs/*/agent_decisions.jsonl
+!outputs/*/eplusout.err
+
+# Scratch/probe models (single-day sanity checks, not deliverables)
+assets/model_????_????_probe.idf

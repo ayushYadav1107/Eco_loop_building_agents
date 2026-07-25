@@ -1,0 +1,27 @@
+{
+  "zones": [
+    "PLENUM-1",
+    "SPACE1-1",
+    "SPACE2-1",
+    "SPACE3-1",
+    "SPACE4-1",
+    "SPACE5-1"
+  ],
+  "controlled_zones": [
+    "SPACE1-1",
+    "SPACE2-1",
+    "SPACE3-1",
+    "SPACE4-1",
+    "SPACE5-1"
+  ],
+  "people": [
+    "SPACE1-1 People 1",
+    "SPACE2-1 People 1",
+    "SPACE3-1 People 1",
+    "SPACE4-1 People 1",
+    "SPACE5-1 People 1"
+  ],
+  "source_idf": "C:\\EnergyPlusV26-1-0\\ExampleFiles\\5ZoneAirCooled.idf",
+  "source_epw": "C:\\EnergyPlusV26-1-0\\WeatherData\\USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw",
+  "timestep_per_hour": 4
+}

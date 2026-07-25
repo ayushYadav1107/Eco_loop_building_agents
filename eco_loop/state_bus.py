@@ -44,6 +44,14 @@ class BuildingStateBus:
             self._run_label = label
             self._err_path = Path(output_dir) / "eplusout.err"
             self._decision_log = Path(output_dir) / "agent_decisions.jsonl"
+            # Truncate: `record_decision` appends, so without this a re-run into
+            # an existing output directory would leave the previous run's
+            # decisions in the file and the dashboard would chart both.
+            try:
+                self._decision_log.parent.mkdir(parents=True, exist_ok=True)
+                self._decision_log.unlink(missing_ok=True)
+            except OSError:
+                pass
             self._state = None
             self._history.clear()
             self._decisions.clear()
