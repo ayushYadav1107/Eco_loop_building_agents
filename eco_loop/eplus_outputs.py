@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional  # noqa: F401  (List used in comfort scoring)
 
 import pandas as pd
 
@@ -143,6 +143,193 @@ def summarize_run(output_dir: Path) -> Dict[str, object]:
         "steps_per_hour": steps_per_hour,
         "source": "csv",
     }
+
+
+def occupied_comfort(output_dir: Path, month: int) -> Optional[Dict[str, object]]:
+    """Compute occupied-hours PMV statistics directly from an EnergyPlus CSV.
+
+    This is what makes the comfort claim falsifiable. The agent's own decision
+    log only exists for AI runs, so comparing it against the baseline would be
+    comparing two different measurements. Here both runs are scored the same
+    way - same ISO 7730 implementation, same clothing/metabolic assumptions,
+    same "worst occupied zone per timestep" reduction - from the raw results
+    each run wrote. Any comfort difference is therefore attributable to the
+    control strategy and not to how it was measured.
+
+    Only zone-timesteps with a non-zero occupant count are scored: PMV is not
+    a meaningful constraint in an empty room, and including unoccupied setback
+    hours would make any night-setback strategy look like a comfort failure.
+    """
+    from eco_loop.comfort import clo_for_season, safe_pmv
+
+    df = load_csv(Path(output_dir) / "eplusout.csv")
+    if df is None:
+        return None
+
+    ta = zone_variable_frame(df, "Zone Mean Air Temperature")
+    if ta.empty:
+        return None
+    tr = zone_variable_frame(df, "Zone Mean Radiant Temperature")
+    rh = zone_variable_frame(df, "Zone Air Relative Humidity")
+    occ = zone_variable_frame(df, "Zone People Occupant Count")
+    if occ.empty:
+        return None
+
+    clo = clo_for_season(month)
+    zones = [z for z in ta.columns if z in occ.columns and occ[z].sum() > 0]
+
+    worst_per_step: List[float] = []
+    for i in range(len(ta)):
+        worst = None
+        for z in zones:
+            if occ[z].iloc[i] <= 0:
+                continue
+            pmv, _ = safe_pmv(
+                ta[z].iloc[i],
+                tr[z].iloc[i] if z in tr.columns else None,
+                rh[z].iloc[i] if z in rh.columns else None,
+                vel=0.15, met=1.2, clo=clo,
+            )
+            if pmv is not None and (worst is None or abs(pmv) > abs(worst)):
+                worst = pmv
+        if worst is not None:
+            worst_per_step.append(worst)
+
+    if not worst_per_step:
+        return None
+
+    in_band = [p for p in worst_per_step if -0.5 <= p <= 0.5]
+    return {
+        "n_occupied_steps": len(worst_per_step),
+        "mean_pmv": sum(worst_per_step) / len(worst_per_step),
+        "pct_in_band": 100.0 * len(in_band) / len(worst_per_step),
+        "min_pmv": min(worst_per_step),
+        "max_pmv": max(worst_per_step),
+        "series": worst_per_step,
+    }
+
+
+_DT_RE = re.compile(r"(\d{2})/(\d{2})\s+(\d{2}):(\d{2})")
+
+
+def add_time_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add `hour` / `day` columns parsed from ReadVarsESO's Date/Time strings.
+
+    EnergyPlus writes hour 24:00:00 for the last interval of a day; it is
+    normalised to hour 0 so hour-of-day grouping does not gain a 25th bucket.
+    """
+    df = df.copy()
+    hours, days = [], []
+    for raw in df["datetime_raw"].astype(str):
+        m = _DT_RE.search(raw)
+        if m:
+            day, hour, minute = int(m.group(2)), int(m.group(3)), int(m.group(4))
+            hours.append(hour % 24 + minute / 60.0)
+            days.append(day)
+        else:
+            hours.append(float("nan"))
+            days.append(-1)
+    df["hour"] = hours
+    df["day"] = days
+    return df
+
+
+def hourly_power_profile(output_dir: Path) -> Optional[pd.DataFrame]:
+    """Mean HVAC electric demand (kW) by hour of day across the run."""
+    df = load_csv(Path(output_dir) / "eplusout.csv")
+    if df is None:
+        return None
+    power = facility_power_series(df)
+    if power is None:
+        return None
+    df = add_time_columns(df)
+    df["kw"] = power.values / 1000.0
+    grouped = df.groupby(df["hour"].astype(int))["kw"].mean().reset_index()
+    grouped.columns = ["hour", "kw"]
+    return grouped
+
+
+def cumulative_energy(output_dir: Path) -> Optional[pd.DataFrame]:
+    """Running total of HVAC energy (kWh) across the run."""
+    df = load_csv(Path(output_dir) / "eplusout.csv")
+    if df is None:
+        return None
+    power = facility_power_series(df)
+    if power is None:
+        return None
+    steps_per_hour = _infer_steps_per_hour(df)
+    kwh = power.fillna(0.0) / 1000.0 / steps_per_hour
+    out = add_time_columns(df)[["hour", "day"]].copy()
+    out["cumulative_kwh"] = kwh.cumsum().values
+    out["step"] = range(len(out))
+    out["elapsed_days"] = out["step"] / (24.0 * steps_per_hour)
+    return out
+
+
+def per_zone_comfort(output_dir: Path, month: int) -> Optional[pd.DataFrame]:
+    """Occupied-hours PMV statistics for each zone separately.
+
+    The headline metric collapses all zones to the worst one per timestep, which
+    is the right conservative summary but hides that most zones are comfortable.
+    This is the breakdown behind it.
+    """
+    from eco_loop.comfort import clo_for_season, safe_pmv
+
+    df = load_csv(Path(output_dir) / "eplusout.csv")
+    if df is None:
+        return None
+    ta = zone_variable_frame(df, "Zone Mean Air Temperature")
+    if ta.empty:
+        return None
+    tr = zone_variable_frame(df, "Zone Mean Radiant Temperature")
+    rh = zone_variable_frame(df, "Zone Air Relative Humidity")
+    occ = zone_variable_frame(df, "Zone People Occupant Count")
+    if occ.empty:
+        return None
+
+    clo = clo_for_season(month)
+    rows = []
+    for zone in [z for z in ta.columns if z in occ.columns and occ[z].sum() > 0]:
+        vals = []
+        for i in range(len(ta)):
+            if occ[zone].iloc[i] <= 0:
+                continue
+            pmv, _ = safe_pmv(
+                ta[zone].iloc[i],
+                tr[zone].iloc[i] if zone in tr.columns else None,
+                rh[zone].iloc[i] if zone in rh.columns else None,
+                vel=0.15, met=1.2, clo=clo,
+            )
+            if pmv is not None:
+                vals.append(pmv)
+        if vals:
+            rows.append({
+                "zone": zone,
+                "pct_in_band": 100.0 * sum(1 for v in vals if -0.5 <= v <= 0.5) / len(vals),
+                "mean_pmv": sum(vals) / len(vals),
+                "min_pmv": min(vals),
+                "max_pmv": max(vals),
+                "n": len(vals),
+            })
+    return pd.DataFrame(rows).sort_values("zone").reset_index(drop=True) if rows else None
+
+
+def compare_runs(baseline_dir: Path, ai_dir: Path, month: int) -> Dict[str, object]:
+    """Headline energy + comfort comparison for one baseline/AI pair."""
+    b_kwh = summarize_run(baseline_dir).get("total_hvac_kwh")
+    a_kwh = summarize_run(ai_dir).get("total_hvac_kwh")
+    b_c = occupied_comfort(baseline_dir, month)
+    a_c = occupied_comfort(ai_dir, month)
+
+    out: Dict[str, object] = {"baseline_kwh": b_kwh, "ai_kwh": a_kwh}
+    if b_kwh and a_kwh is not None and b_kwh > 0:
+        out["savings_pct"] = 100.0 * (b_kwh - a_kwh) / b_kwh
+        out["savings_kwh"] = b_kwh - a_kwh
+    if b_c and a_c:
+        out["baseline_comfort"] = {k: v for k, v in b_c.items() if k != "series"}
+        out["ai_comfort"] = {k: v for k, v in a_c.items() if k != "series"}
+        out["comfort_delta_pp"] = a_c["pct_in_band"] - b_c["pct_in_band"]
+    return out
 
 
 def _infer_steps_per_hour(df: pd.DataFrame) -> int:

@@ -140,6 +140,33 @@ def cmd_run_all(args: argparse.Namespace) -> None:
     _print_savings_summary()
 
 
+def cmd_compare(args: argparse.Namespace) -> None:
+    """Print the energy + comfort comparison for one baseline/AI pair."""
+    from eco_loop import eplus_outputs as eo
+
+    result = eo.compare_runs(Path(args.baseline), Path(args.ai), args.month)
+    b, a = result.get("baseline_kwh"), result.get("ai_kwh")
+    print(f"\n=== {args.label} ===")
+    if b is None or a is None:
+        print("  no results found - run the simulations first")
+        return
+    print(f"  baseline HVAC : {b:8.2f} kWh")
+    print(f"  AI-driven HVAC: {a:8.2f} kWh")
+    if "savings_pct" in result:
+        print(f"  savings       : {result['savings_kwh']:+8.2f} kWh  ({result['savings_pct']:+.1f}%)")
+    bc, ac = result.get("baseline_comfort"), result.get("ai_comfort")
+    if bc and ac:
+        print(f"\n  thermal comfort, occupied hours only ({ac['n_occupied_steps']} zone-timesteps):")
+        print(f"    baseline : mean PMV {bc['mean_pmv']:+.2f}   in band {bc['pct_in_band']:5.1f}%")
+        print(f"    AI       : mean PMV {ac['mean_pmv']:+.2f}   in band {ac['pct_in_band']:5.1f}%")
+        print(f"    delta    : {result['comfort_delta_pp']:+.1f} percentage points in band")
+        verdict = (
+            "comfort preserved" if result["comfort_delta_pp"] >= -2.0
+            else "COMFORT DEGRADED - savings came at the occupants' expense"
+        )
+        print(f"    verdict  : {verdict}")
+
+
 def cmd_dashboard(args: argparse.Namespace) -> None:
     subprocess.run(
         [sys.executable, "-m", "streamlit", "run", str(Path(__file__).parent / "dashboard.py")],
@@ -207,6 +234,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_all.add_argument("--transport", choices=["mcp", "direct"], default=None)
     p_all.add_argument("--non-blocking", action="store_true")
     p_all.set_defaults(func=cmd_run_all)
+
+    p_cmp = sub.add_parser("compare", help="Print energy + comfort comparison for a baseline/AI pair")
+    p_cmp.add_argument("--baseline", default=str(BASELINE_DIR))
+    p_cmp.add_argument("--ai", default=str(AI_DIR))
+    p_cmp.add_argument("--month", type=int, default=7, help="Month, for seasonal clothing assumption (default 7)")
+    p_cmp.add_argument("--label", default="Eco-Loop comparison")
+    p_cmp.set_defaults(func=cmd_compare)
 
     p_dash = sub.add_parser("dashboard", help="Launch the Streamlit savings dashboard")
     p_dash.set_defaults(func=cmd_dashboard)

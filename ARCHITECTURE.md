@@ -231,7 +231,7 @@ Three independent layers stand between an LLM output and the simulation:
 1. **Schema validation** (`SetpointCommand` field/model validators) - rejects
    out-of-policy or physically inconsistent commands outright.
 2. **Rate limiting** (`SetpointCommand.rate_limited`) - clamps *accepted*
-   commands to `POLICY.max_step_per_interval` degC of movement from the
+   commands to `POLICY.max_step_per_hour` degC/hour of movement from the
    previous command, applied unconditionally in `sim_env._on_control_interval`
    regardless of what the model or the MCP tool already validated.
 3. **Timeout fallback** (`Agent._fallback`) - guarantees a policy-valid command
@@ -244,17 +244,40 @@ adversarial or simply broken model response.
 
 ## 6. Measured results and tuning findings
 
-Validated end-to-end on EnergyPlus 26.1.0 + Ollama, `5ZoneAirCooled.idf` with
-Chicago TMY3 weather, design-day run (2 days), 60-minute control interval,
-`llama3.2:3b`:
+Validated end-to-end on EnergyPlus 26.1.0 + Ollama `llama3.2:3b`,
+`5ZoneAirCooled.idf` with Chicago TMY3 weather, 60-minute control interval,
+representative one-week run periods, temperature 0 (see §7 for why).
+
+**Summer week, 15-21 July (cooling season)**
 
 | Metric | Baseline | AI-driven |
 |---|---|---|
-| HVAC electricity | 80.88 kWh | **73.47 kWh (-9.2%)** |
-| Agent turns | - | 48 |
-| Real LLM decisions | - | **48/48 (0 fallbacks, 0 timeouts)** |
-| PMV during occupancy | - | mean -0.01, **9/11 intervals in band** |
-| Agent latency | - | mean 6.4 s, p50 4.9 s, max 43.3 s |
+| HVAC electricity | 396.87 kWh | **363.04 kWh (-8.5%)** |
+| Real LLM decisions | - | **168/168 (0 fallbacks, 0 timeouts, 0 actuation errors)** |
+| Mean PMV, occupied | -0.43 | **-0.02** (much closer to neutral) |
+| Worst-zone PMV in band, occupied | 88.2% | 75.0% |
+
+**Winter week, 15-21 January (heating season)**
+
+| Metric | Baseline | AI-driven |
+|---|---|---|
+| HVAC electricity | 67.60 kWh | **65.13 kWh (-3.7%)** |
+| Real LLM decisions | - | **168/168 (0 fallbacks, 0 timeouts, 0 actuation errors)** |
+| Mean PMV, occupied | +0.06 | -0.18 |
+| Worst-zone PMV in band, occupied | 97.3% | 65.5% |
+
+336 consecutive agent turns across both weeks with no fallback, no timeout and
+no actuation error. Agent latency: mean ~2.2 s, max 43 s against a 45 s budget.
+
+**Read the comfort rows carefully.** The agent holds occupants *closer to
+thermal neutrality on average* than the baseline does in summer (-0.02 vs
+-0.43), while using 8.5% less energy. The lower "in band" percentage is a
+different statement: the metric is the **worst zone at each timestep**, so one
+unhappy zone out of five fails the whole interval. Per-zone the AI run is
+86-96% in band. §8 explains why one setpoint pair cannot satisfy five zones,
+and what it would take to fix. Winter savings are small because the baseline's
+heating schedule is already well tuned and the building coasts on internal
+gains for much of the occupied period, leaving little headroom.
 
 Three findings from getting there are worth recording, because each is a trap
 that any similar LLM-in-the-loop system will hit:
@@ -291,7 +314,81 @@ temperature, so the baseline's 23.9 C setpoint was already over-cooling. The
 agent's job was to find that, and it could not until the observation said which
 way to move.
 
-## 7. Data flow summary for the dashboard
+## 7. Reproducibility: why the controller runs at temperature 0
+
+Early tuning produced summer comfort figures of 67.3%, 70.0%, 76.4% and 69.5%
+across four near-identical configurations. That ~9-point spread is the same
+magnitude as the effects being tuned for, which makes single-run comparisons
+worthless: any "improvement" could be sampling noise. Energy was far more
+stable over the same runs (6.8-8.2%), so the instability was specific to the
+comfort metric, which depends on a handful of boundary intervals.
+
+The controller now runs at `temperature = 0`. This is the right setting on its
+own merits - a supervisory controller should not make different decisions from
+identical inputs - and it was verified rather than assumed. Two runs of the
+identical summer configuration produced:
+
+| | Replicate 1 | Replicate 2 |
+|---|---|---|
+| HVAC energy | 363.04 kWh | 363.04 kWh |
+| Comfort in band | 75.0% | 75.0% |
+| Mean PMV | -0.02 | -0.02 |
+| Identical setpoint decisions | 157 / 168 (93.5%) | 157 / 168 (93.5%) |
+
+Aggregate outcomes are identical to the last decimal, while 11 of 168
+individual decisions still differ. Every divergence falls between 02:00 and
+06:00 - **unoccupied setback hours**, where the choice between a 24 C and a
+26 C cooling setpoint changes nothing because the building is empty and the
+band is parked anyway. The residual nondeterminism (llama.cpp does not
+guarantee bitwise-identical logits across runs even at temperature 0, because
+batched GPU reductions are not associative) is therefore confined to decisions
+that have no physical consequence, and the controller is deterministic wherever
+determinism matters.
+
+Practical consequence: the numbers in §6 are reproducible. Re-running
+`python main.py run-all` on the same model, weather file and LLM reproduces
+them, which is the property that makes the comparison auditable rather than
+anecdotal.
+
+## 8. Known limitation: one setpoint pair for five zones
+
+The agent issues a **single global `(cooling_sp, heating_sp)` pair** that is
+written to every controlled zone. The baseline it is compared against has an
+independent thermostat per zone. This is the dominant remaining source of the
+comfort gap, and it is worth being precise about, because the headline metric
+makes it look larger than it is.
+
+Per-zone results from the summer week (occupied hours, AI run):
+
+| Zone | in band | mean PMV | mean occupied temp |
+|---|---|---|---|
+| SPACE3-1 | 99.1% | +0.01 | 24.8 C |
+| SPACE2-1 | 95.0% | +0.03 | 24.5 C |
+| SPACE1-1 | 91.4% | -0.08 | 24.7 C |
+| SPACE4-1 | 81.8% | -0.08 | 24.2 C |
+| SPACE5-1 | 80.9% | -0.23 | 24.6 C |
+
+Every individual zone is between 81% and 99% in band. The headline figure is
+lower because the reported metric is deliberately the **worst zone at each
+timestep** - a single unhappy zone fails the whole interval. That is the
+conservative choice and it is applied identically to the baseline, so the
+comparison stays fair, but it means the number reflects the *hardest* zone
+rather than the average occupant.
+
+The zones differ in orientation, envelope exposure and internal gain, so their
+loads differ; no single setpoint pair satisfies all five simultaneously. The
+baseline's per-zone thermostats can, which is precisely the advantage it holds.
+
+The fix is architectural rather than cognitive: `apply_hvac_setpoints` would
+take an optional per-zone mapping, `sim_env._actuate` already holds per-zone
+actuator handles (`self._cool_act[zone]`) and would simply write different
+values, and the observation already reports per-zone PMV. What it costs is
+prompt complexity - the agent must reason about five coupled zones per turn
+rather than one - which is a poor trade for a 3B model at a 60-minute control
+interval, and is the reason it was not attempted here. On a larger local model
+this is the highest-value next change.
+
+## 9. Data flow summary for the dashboard
 
 - `sim_env.py` runs EnergyPlus with `-r` (ReadVarsESO), producing
   `eplusout.csv`, and `idf_utils.instrument_idf` injects

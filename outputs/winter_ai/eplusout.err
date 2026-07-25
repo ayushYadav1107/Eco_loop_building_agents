@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 19:10,
+Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 21:40,
    ************* Beginning Zone Sizing Calculations
    ************* Beginning System Sizing Calculations
    ************* Beginning Plant Sizing Calculations
@@ -10,8 +10,6 @@ Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 19:10,
    ************* All Return Air Paths passed integrity testing
    ************* No node connection errors were found.
    ************* Beginning Simulation
-   ** Warning ** Plant Loop: CHILLED WATER LOOP Supply Side is storing excess heat the majority of the time.
-   **   ~~~   ** Excess Storage Time=1.00[hr], Total Loop Active Time=1.50[hr]
    ************* Simulation Error Summary *************
    ** Warning ** The following Report Variables were requested but not generated -- check.rdd file
    **   ~~~   ** Either the IDF did not contain these elements, the variable name is misspelled,
@@ -20,4 +18,4 @@ Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 19:10,
    ************* Key=*, VarName=ZONE THERMAL COMFORT FANGER MODEL PPD, Frequency=TimeStep
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
    ************* EnergyPlus Sizing Error Summary. During Sizing: 0 Warning; 0 Severe Errors.
-   ************* EnergyPlus Completed Successfully-- 1 Warning; 0 Severe Errors; Elapsed Time=00hr 05min 59.41sec
+   ************* EnergyPlus Completed Successfully-- 0 Warning; 0 Severe Errors; Elapsed Time=00hr 06min 14.58sec

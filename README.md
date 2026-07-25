@@ -44,23 +44,47 @@ POC/
 ## Verified results
 
 End-to-end on EnergyPlus 26.1.0 + Ollama `llama3.2:3b`, `5ZoneAirCooled.idf`
-with Chicago TMY3, design-day run, 60-minute control interval:
+with Chicago TMY3, 60-minute control interval, one-week run periods:
 
+| | Baseline | AI-driven | |
+|---|---|---|---|
+| **Summer week** (15-21 Jul) | 396.87 kWh | **363.04 kWh** | **-8.5%** |
+| mean PMV, occupied | -0.43 | **-0.02** | closer to neutral |
+| **Winter week** (15-21 Jan) | 67.60 kWh | **65.13 kWh** | **-3.7%** |
+| mean PMV, occupied | +0.06 | -0.18 | |
+
+**336/336 real LLM decisions across both weeks - 0 fallbacks, 0 timeouts,
+0 actuation errors.** Results are reproducible: the controller runs at
+temperature 0 and repeated runs give identical totals.
+
+Reproduce with:
+
+```bash
+python main.py run-baseline --start 07-15 --end 07-21 --output-dir outputs/baseline
 ```
-baseline HVAC : 80.88 kWh
-AI-driven HVAC: 73.47 kWh
-savings       : +7.41 kWh  (+9.2%)
 
-agent turns   : 48   (48 real LLM decisions, 0 fallbacks, 0 timeouts)
-PMV occupied  : mean -0.01,  9/11 intervals inside [-0.5, +0.5]
-latency       : mean 6.4 s,  p50 4.9 s,  max 43.3 s
+```bash
+python main.py run-ai --start 07-15 --end 07-21 --output-dir outputs/ai
 ```
 
-Reproduce with `python main.py run-all`. See
-[`ARCHITECTURE.md` §6](ARCHITECTURE.md#6-measured-results-and-tuning-findings)
-for the tuning findings behind these numbers - in particular why model choice
-must be driven by available VRAM, and why the agent needs the *direction* of a
-comfort fix rather than just the PMV value.
+```bash
+python main.py compare --baseline outputs/baseline --ai outputs/ai --month 7
+```
+
+On the comfort numbers: the agent keeps occupants **closer to thermal
+neutrality on average** than the baseline in summer while cutting 8.5% of
+energy. The stricter "percentage of intervals with every zone in band" metric
+is lower (75.0% vs 88.2%), because it scores the *worst zone at each timestep* -
+one unhappy zone out of five fails the whole interval, and the agent drives a
+single setpoint pair for all five. Per zone it achieves 86-96%. This is a real
+limitation, documented honestly in
+[`ARCHITECTURE.md` §8](ARCHITECTURE.md#8-known-limitation-one-setpoint-pair-for-five-zones)
+together with what it would take to fix.
+
+See [`ARCHITECTURE.md` §6](ARCHITECTURE.md#6-measured-results-and-tuning-findings)
+for the tuning findings behind these numbers - why model choice must be driven
+by available VRAM, why the agent needs the *direction* of a comfort fix rather
+than just the PMV value, and why it once ran the chiller in January.
 
 ## Building models and what the agent changes
 

@@ -35,6 +35,10 @@ DecideFn = Callable[[BuildingState], AgentDecision]
 # copy-paste of `current_environment_num`.
 KIND_RUNPERIOD_WEATHER = 3
 
+# Approximate PMV change per degC of zone temperature, used to size the
+# per-zone trim. Same figure the observation layer uses for its suggestions.
+_PMV_PER_DEGC = 0.3
+
 
 # --------------------------------------------------------------------------- #
 # Handle bookkeeping
@@ -147,6 +151,12 @@ class EnergyPlusSimulation:
         self._interval_index = 0
 
         self._active_cmd = SetpointCommand.baseline("initial baseline")
+        self._zone_trim: Dict[str, float] = {}
+        # Hours of the day observed to be occupied so far. Populated as the run
+        # proceeds, then used to anticipate the next occupied period (optimal
+        # start). Day 1's morning is necessarily unanticipated - there is no
+        # history yet - which is exactly how a real BMS behaves on commissioning.
+        self._occupied_hours: set = set()
         self._pending_future = None
         self._executor = None
 
@@ -397,6 +407,36 @@ class EnergyPlusSimulation:
             if v is not None:
                 acc.push_zone(people, "eplus_pmv", v)
 
+    def _update_zone_trims(self, building_state: BuildingState) -> None:
+        """Recompute each zone's band offset from its own PMV.
+
+        The agent chooses one building-wide setpoint pair; this closes the gap
+        between that pair and what each individual zone actually needs. Zones
+        differ in orientation, envelope exposure and internal gain, so a single
+        pair leaves the hardest zone out of band even when the average zone is
+        comfortable (measured: per-zone 81-99% in band, worst-zone 67%).
+
+        Deliberately a plain proportional loop, not another LLM call: it runs
+        per zone per interval, needs no reasoning, and keeping it out of the
+        prompt leaves the model's job exactly as simple as before.
+        """
+        if not building_state.occupied and not building_state.pre_occupancy:
+            # Unoccupied: no comfort target to chase, so apply a uniform
+            # setback and let the trims decay away rather than fighting it.
+            # Pre-occupancy is excluded - that is precisely when the trims need
+            # to already be working.
+            self._zone_trim = {z: 0.0 for z in self._zone_trim}
+            return
+
+        for zone_obs in building_state.zones:
+            if zone_obs.pmv is None:
+                continue
+            target = -zone_obs.pmv / _PMV_PER_DEGC
+            target = max(-POLICY.max_zone_trim_c, min(POLICY.max_zone_trim_c, target))
+            previous = self._zone_trim.get(zone_obs.zone, 0.0)
+            # Partial step toward the target damps oscillation between intervals.
+            self._zone_trim[zone_obs.zone] = previous + POLICY.zone_trim_gain * (target - previous)
+
     def _actuate(self, state, cmd: SetpointCommand) -> None:
         """Setpoint actuators must be re-written every timestep to stay overridden."""
         if self.decide_fn is None:
@@ -405,10 +445,12 @@ class EnergyPlusSimulation:
         for zone in self.zones:
             ch = self._cool_act.get(zone, -1)
             hh = self._heat_act.get(zone, -1)
+            trim = self._zone_trim.get(zone, 0.0)
+            zone_cmd = cmd.shifted(trim) if trim else cmd
             if ch >= 0:
-                ex.set_actuator_value(state, ch, cmd.cooling_sp)
+                ex.set_actuator_value(state, ch, zone_cmd.cooling_sp)
             if hh >= 0:
-                ex.set_actuator_value(state, hh, cmd.heating_sp)
+                ex.set_actuator_value(state, hh, zone_cmd.heating_sp)
 
     # ------------------------------------------------------------------ #
     # Control interval: build state, consult the agent, commit the command
@@ -424,6 +466,12 @@ class EnergyPlusSimulation:
         if self.decide_fn is None:
             return  # baseline run is observation-only
 
+        # Local loop first: per-zone trims are refreshed every interval from
+        # live PMV, independently of whether the agent turn succeeds. If the
+        # LLM times out and we fall back, zone-level comfort correction keeps
+        # working on the last accepted building-wide command.
+        self._update_zone_trims(building_state)
+
         decision = self._consult_agent(building_state)
         if decision is None:
             return  # non-blocking mode, previous command stays active
@@ -432,7 +480,15 @@ class EnergyPlusSimulation:
         # model actually invoked, already validated server-side.
         staged = BUS.take_pending()
         command = staged or decision.command
-        command = command.rate_limited(self._active_cmd)
+        # Seasonal changeover first (park the idle mode's setpoint), then slew
+        # limiting, so the parked value is not itself ramped in slowly.
+        # Pre-occupancy counts as occupied for parking, so the comfort floor is
+        # already in place when people walk in rather than starting to move then.
+        command = command.seasonal_park(
+            building_state.active_mode(),
+            building_state.occupied or building_state.pre_occupancy,
+        )
+        command = command.rate_limited(self._active_cmd, self.control_interval_min)
 
         self._active_cmd = command
         BUS.set_active(command)
@@ -538,6 +594,20 @@ class EnergyPlusSimulation:
         intensity = GRID.intensity(hour_frac, month)
         occupants = sum(z.occupant_count or 0.0 for z in zone_obs)
 
+        occupied_now = (
+            occupants > 0.5
+            if zone_obs and any(z.occupant_count is not None for z in zone_obs)
+            else 7 <= hour < 19
+        )
+        if occupied_now:
+            self._occupied_hours.add(hour)
+        # Optimal start: look one and two hours ahead against the occupancy
+        # pattern learned so far. Two hours is the warm-up time the slew limit
+        # allows from a deep setback (3 degC/h over a ~6 degC setback).
+        pre_occupancy = (not occupied_now) and any(
+            (hour + ahead) % 24 in self._occupied_hours for ahead in (1, 2)
+        )
+
         return BuildingState(
             timestamp=timestamp,
             sim_minutes=self._sim_minutes,
@@ -549,7 +619,9 @@ class EnergyPlusSimulation:
             interval_energy_kwh=kwh,
             grid_carbon_intensity_g_per_kwh=intensity,
             interval_carbon_g=kwh * intensity,
-            occupied=occupants > 0.5 if zone_obs and any(z.occupant_count is not None for z in zone_obs) else 7 <= hour < 19,
+            occupied=occupied_now,
+            pre_occupancy=pre_occupancy,
+            hour_of_day=hour_frac,
             zones=zone_obs,
             active_cooling_setpoint_c=self._active_cmd.cooling_sp,
             active_heating_setpoint_c=self._active_cmd.heating_sp,

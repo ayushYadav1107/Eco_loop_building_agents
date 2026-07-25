@@ -228,8 +228,9 @@ def get_control_policy() -> Dict[str, Any]:
         "control_interval_minutes": SETTINGS.control_interval_min,
         "note": (
             "Setpoint movement is additionally rate-limited to "
-            f"{POLICY.max_step_per_interval} degC per control interval to avoid "
-            "thermostat hunting."
+            f"{POLICY.max_step_per_hour} degC per hour to avoid thermostat hunting, "
+            "and the idle mode's setpoint is parked at its policy limit "
+            "(seasonal changeover) so heating and cooling cannot fight."
         ),
     }
 
@@ -279,7 +280,7 @@ def apply_hvac_setpoints(
         "deadband_c": round(cmd.cooling_sp - cmd.heating_sp, 2),
         "note": (
             "Staged. The simulation applies this at the next timestep, after "
-            f"rate-limiting to {POLICY.max_step_per_interval} degC of movement."
+            f"rate-limiting to {POLICY.max_step_per_hour} degC/hour and seasonal changeover."
         ),
     }
 

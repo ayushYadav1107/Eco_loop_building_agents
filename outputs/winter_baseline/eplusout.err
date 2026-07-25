@@ -1,4 +1,4 @@
-Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 21:34,
+Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 21:39,
    ************* Beginning Zone Sizing Calculations
    ************* Beginning System Sizing Calculations
    ************* Beginning Plant Sizing Calculations
@@ -18,4 +18,4 @@ Program Version,EnergyPlus, Version 26.1.0-6f2e40d102, YMD=2026.07.25 21:34,
    ************* Key=*, VarName=ZONE THERMAL COMFORT FANGER MODEL PPD, Frequency=TimeStep
    ************* EnergyPlus Warmup Error Summary. During Warmup: 0 Warning; 0 Severe Errors.
    ************* EnergyPlus Sizing Error Summary. During Sizing: 0 Warning; 0 Severe Errors.
-   ************* EnergyPlus Completed Successfully-- 0 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  1.26sec
+   ************* EnergyPlus Completed Successfully-- 0 Warning; 0 Severe Errors; Elapsed Time=00hr 00min  1.28sec

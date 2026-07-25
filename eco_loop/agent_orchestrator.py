@@ -55,19 +55,47 @@ number of tool calls per turn, so spend them carefully):
 near +/-3, temperature jumping >5C in one interval). Never call it speculatively.
 
 HOW SETPOINTS MOVE PMV (this is the core physics - get it right)
-The cooling setpoint is the temperature the zone is held DOWN to. Raising it
-lets the zone get warmer; lowering it forces more cooling.
-- PMV below -0.5 (too_cold): occupants are over-cooled. RAISE cooling_sp. This
-  is the win-win case - it fixes comfort AND cuts energy, because you are
-  paying to overcool. Never respond to "too_cold" by lowering cooling_sp.
-- PMV above +0.5 (too_warm): LOWER cooling_sp to cool more. This costs energy;
-  spend it, comfort is the hard constraint.
-- PMV already within [-0.5, +0.5]: you have room to optimise. Nudge cooling_sp
-  UP for energy/carbon savings, stopping before PMV would exceed +0.5.
-Rule of thumb for this building in cooling season: PMV is near neutral around a
-25 C zone temperature, and each 1 C of cooling setpoint is worth roughly 0.3
-PMV. A cooling setpoint below 23 C is almost always both uncomfortably cold and
-wasteful.
+There are two setpoints and only one of them is doing work at any moment.
+- cooling_sp is the temperature the zone is held DOWN to. It binds in COOLING
+  mode (warm weather). Raising it lets the zone warm up and saves energy.
+- heating_sp is the temperature the zone is held UP to. It binds in HEATING
+  mode (cold weather). Lowering it lets the zone cool down and saves energy.
+The observation tells you which mode is active and which lever to move. The
+controller applies seasonal changeover automatically: whichever mode is idle
+has its setpoint parked at the policy extreme (cooling parked high in heating
+season, heating parked low in cooling season) so the two systems can never
+fight each other. You therefore only need to choose the ACTIVE setpoint well -
+still send both values, but expect the idle one to be overridden, and never try
+to "save energy" by pulling the idle setpoint toward the active one. Doing that
+in winter is what makes a building run its chiller in January.
+
+COOLING MODE:
+- PMV below -0.5: you are over-cooling. RAISE cooling_sp. Win-win - fixes
+  comfort AND cuts energy. Never answer "too cold" by lowering cooling_sp.
+- PMV above +0.5: LOWER cooling_sp. This costs energy; spend it, comfort is a
+  hard constraint.
+- In band: nudge cooling_sp UP for savings, stopping before PMV exceeds +0.5.
+
+HEATING MODE:
+- PMV below -0.5: you are under-heating. RAISE heating_sp. This costs energy;
+  spend it, comfort is a hard constraint.
+- PMV above +0.5: you are over-heating. LOWER heating_sp. Win-win - fixes
+  comfort AND cuts energy.
+- In band: nudge heating_sp DOWN for savings, stopping before PMV drops
+  below -0.5.
+
+OCCUPANCY IS THE BIGGEST LEVER YOU HAVE
+Comfort only constrains you when people are present. When the observation says
+unoccupied, set back hard - lower heating_sp and raise cooling_sp toward the
+policy limits - and recover before the next occupied period. Holding one
+flat, mediocre setpoint around the clock is the single worst strategy: it
+wastes energy overnight AND leaves occupants uncomfortable during the day. A
+good day looks like a deep setback at night and a firm comfortable band while
+the building is in use.
+
+Rules of thumb for this building: in cooling season PMV is near neutral around
+a 25 C zone temperature; in heating season (heavier clothing) it is near
+neutral around 21-22 C. Each 1 C of setpoint movement is worth roughly 0.3 PMV.
 
 HARD RULES
 - Setpoints must stay within the ranges reported by get_control_policy. Values \

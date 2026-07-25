@@ -128,9 +128,34 @@ class ControlPolicy:
     heating_sp_min: float = 16.0
     heating_sp_max: float = 22.0
     min_deadband: float = 2.0      # degC between heating and cooling setpoint
-    max_step_per_interval: float = 1.5  # degC of setpoint movement per decision
+    # Setpoint slew limit expressed per HOUR, then scaled to the control
+    # interval. A flat per-interval cap made morning warm-up impossible: from a
+    # 16 C night setback, 1.5 degC/interval needs four hours to reach a
+    # comfortable 22 C, so the building was still cold well into the occupied
+    # period. 3 degC/h is a realistic ramp for real plant and still prevents
+    # thermostat hunting.
+    max_step_per_hour: float = 3.0
     pmv_low: float = -0.5
     pmv_high: float = 0.5
+    # Comfort floor/ceiling applied to the PARKED (idle-mode) setpoint while the
+    # building is occupied. Parking the idle setpoint at its absolute policy
+    # extreme is correct overnight but harmful during occupied hours: with
+    # heating pinned to 16 C, a cool summer morning cannot be corrected at all
+    # (measured: PMV -0.86 at 09:00). These are the occupied-mode equivalents,
+    # and still leave a wide enough deadband that the two systems cannot fight.
+    occupied_heating_floor: float = 20.0
+    occupied_cooling_ceiling: float = 25.5
+    # Per-zone trim: the supervisory agent sets one building-wide setpoint pair,
+    # and each zone's band is then shifted by a small proportional correction
+    # driven by that zone's own PMV. Five zones with different orientation and
+    # load cannot all be satisfied by a single pair; this is the local-loop half
+    # of a standard supervisory/local BMS split.
+    max_zone_trim_c: float = 2.0
+    zone_trim_gain: float = 0.5   # fraction of the computed error applied per interval
+    # Only trim energy when PMV has this much margin inside the comfort band.
+    # Without it the agent optimises to the band edge and oscillates across it -
+    # excellent mean PMV, poor percentage-in-band.
+    comfort_trim_margin: float = 0.2
     baseline_cooling_sp: float = 24.0
     baseline_heating_sp: float = 21.0
 
@@ -139,7 +164,7 @@ class ControlPolicy:
             "cooling_setpoint_range_c": [self.cooling_sp_min, self.cooling_sp_max],
             "heating_setpoint_range_c": [self.heating_sp_min, self.heating_sp_max],
             "min_deadband_c": self.min_deadband,
-            "max_setpoint_step_c": self.max_step_per_interval,
+            "max_setpoint_step_c_per_hour": self.max_step_per_hour,
             "pmv_comfort_band": [self.pmv_low, self.pmv_high],
             "baseline_setpoints_c": {
                 "cooling": self.baseline_cooling_sp,
