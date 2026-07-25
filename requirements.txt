@@ -1,0 +1,19 @@
+# --- Cognitive layer -------------------------------------------------------
+openai>=1.40.0            # OpenAI-compatible client, pointed at Ollama / vLLM
+fastmcp>=2.3.0            # MCP server + client (tool exposure over HTTP)
+pydantic>=2.6.0           # Strict schema validation of LLM actuator commands
+
+# --- Data / dashboard ------------------------------------------------------
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.18.0
+streamlit>=1.32.0
+
+# --- Utilities -------------------------------------------------------------
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# NOTE: `pyenergyplus` is NOT a PyPI package. It ships inside the EnergyPlus
+# installation directory (e.g. C:\EnergyPlusV9-6-0 or /usr/local/EnergyPlus-9-6-0).
+# `config.bootstrap_energyplus()` puts that directory on sys.path at runtime.
+# Install EnergyPlus 9.5+ from https://energyplus.net/downloads
