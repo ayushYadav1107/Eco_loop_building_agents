@@ -1,46 +1,76 @@
-# Eco-Loop Building Agents - System Architecture
+# Eco-Loop Building Agents — System Architecture
+
+> An EnergyPlus building simulation supervised, **while it runs**, by a local
+> open-source LLM speaking the Model Context Protocol. No file is rewritten and
+> the simulation never restarts: setpoints are injected straight into the live
+> solver.
+
+| | |
+|---|---|
+| **Simulation** | EnergyPlus 26.1.0 via `pyenergyplus` (in-process C API) |
+| **Cognitive engine** | Ollama · `llama3.2:3b`, OpenAI-compatible endpoint |
+| **Protocol** | FastMCP 3.4 over streamable HTTP, 6 tools |
+| **Loop rate** | sensors every zone timestep · agent every 60 simulated min |
+| **Measured** | **−8.5 %** summer / **−3.7 %** winter HVAC energy |
+| **Reliability** | **336 / 336** agent turns, 0 fallbacks, 0 timeouts, 0 actuation errors |
+
+---
 
 ## 1. Overview
 
-Eco-Loop closes the loop between a running EnergyPlus simulation and a locally
-hosted LLM. Every `N` simulated minutes (15 or 60, configurable), the building's
-aggregated state - zone temperatures, humidity, PMV, HVAC electric demand, grid
-carbon intensity - is handed to the LLM through a set of MCP tools. The model
-reasons over that state, calls tools to gather more context if needed, and
-finishes by calling `apply_hvac_setpoints`, whose validated output is written
-back into the simulation's actuators before the next timestep.
+Every `N` simulated minutes (15 or 60, configurable) the building's aggregated
+state — zone temperatures, humidity, PMV, HVAC electric demand, grid carbon
+intensity — is handed to the LLM through MCP tools. The model reasons over that
+state, calls tools for more context if it needs them, and finishes by calling
+`apply_hvac_setpoints`, whose validated output is written into the simulation's
+actuators before the next timestep.
 
-```
- EnergyPlus (C runtime)                 Python process
-┌─────────────────────────┐            ┌──────────────────────────────────────┐
-│ pyenergyplus.api         │            │ eco_loop.sim_env.EnergyPlusSimulation │
-│                          │  callback  │                                      │
-│ end-zone-timestep ───────┼───────────▶│  _Accumulator (per-interval buffer)   │
-│  (every sub-hourly step) │            │        │                             │
-│                          │            │        ▼ every control interval      │
-│ actuators re-asserted ◀──┼────────────┼── BuildingStateBus.publish_state()   │
-│  every timestep          │            │        │                             │
-└─────────────────────────┘            │        ▼                             │
-                                        │  agent_orchestrator.Agent.decide()    │
-                                        │        │  chat.completions.create()   │
-                                        │        ▼                             │
-                                        │  ┌───────────────────────────────┐   │
-                                        │  │ FastMCP server (daemon thread) │   │
-                                        │  │  get_current_building_state    │   │
-                                        │  │  get_recent_history             │   │
-                                        │  │  read_error_logs                │   │
-                                        │  │  get_grid_carbon_forecast       │   │
-                                        │  │  get_control_policy             │   │
-                                        │  │  apply_hvac_setpoints  ─────────┼───┼─▶ BuildingStateBus.stage_command()
-                                        │  └───────────────────────────────┘   │
-                                        └──────────────────────────────────────┘
-                                                       ▲
-                                                       │ OpenAI-compatible API
-                                                       │ (http://localhost:11434/v1)
-                                        ┌──────────────────────────┐
-                                        │ Ollama / vLLM             │
-                                        │ Llama 3 8B / Mistral       │
-                                        └──────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph EP["⚙️ EnergyPlus 26.1 · C runtime"]
+        direction TB
+        SOLVER["Heat-balance solver<br/><i>sub-hourly timestep</i>"]
+        ACTU["Actuators<br/><b>Zone Temperature Control</b>"]
+        ERR[("eplusout.err<br/>live diagnostics")]
+    end
+
+    subgraph PYPROC["🐍 Python process"]
+        direction TB
+        SIM["<b>sim_env</b>.EnergyPlusSimulation<br/><i>callback · handle resolution</i>"]
+        ACC["_Accumulator<br/><i>per-interval buffer</i>"]
+        BUS[("<b>state_bus.BUS</b><br/>RLock blackboard")]
+        AGENT["<b>agent_orchestrator</b>.Agent<br/><i>tool-calling loop · deadline</i>"]
+
+        subgraph MCPSRV["🔌 FastMCP server · daemon thread"]
+            direction TB
+            READ["get_current_building_state<br/>get_recent_history<br/>get_grid_carbon_forecast<br/>get_control_policy<br/>read_error_logs"]
+            WRITE["<b>apply_hvac_setpoints</b><br/><i>the only write path</i>"]
+        end
+    end
+
+    subgraph LLMBOX["🧠 Ollama · llama3.2:3b"]
+        MODEL["OpenAI-compatible<br/>/v1/chat/completions"]
+    end
+
+    SOLVER -- "every timestep<br/>get_variable_value" --> SIM
+    SIM --> ACC
+    ACC -- "every control interval" --> BUS
+    BUS -- "BuildingState" --> AGENT
+    AGENT <-- "tool calls" --> MODEL
+    AGENT -- "MCP over HTTP" --> READ
+    AGENT -- "MCP over HTTP" --> WRITE
+    BUS -. "reads" .-> READ
+    ERR -. "tail only" .-> READ
+    WRITE -- "validated command" --> BUS
+    BUS -- "re-asserted every timestep<br/>set_actuator_value" --> ACTU
+    ACTU --> SOLVER
+
+    classDef ep stroke:#2a78d6,stroke-width:2px
+    classDef py stroke:#eb6834,stroke-width:2px
+    classDef llm stroke:#0a840a,stroke-width:2px
+    class EP,SOLVER,ACTU,ERR ep
+    class PYPROC,SIM,ACC,BUS,AGENT,MCPSRV,READ,WRITE py
+    class LLMBOX,MODEL llm
 ```
 
 Three threads, one shared blackboard:
@@ -148,8 +178,59 @@ isolates exactly one variable.
 ## 3. Prompt Latency Management
 
 An LLM call inside an EnergyPlus callback is a hard real-time constraint: the
-C runtime is blocked on the Python call returning. Three layers keep that
-bounded:
+C runtime is blocked on the Python call returning. This is one control
+interval, end to end — note that the solver is *stopped* for the width of the
+`Agent.decide()` bar:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant EP as EnergyPlus<br/>(C runtime)
+    participant SIM as sim_env
+    participant BUS as state_bus.BUS
+    participant AG as Agent
+    participant MCP as FastMCP
+    participant LLM as llama3.2:3b
+
+    loop every zone timestep (15 sim-min)
+        EP->>SIM: end_zone_timestep callback
+        SIM->>SIM: sample sensors → _Accumulator
+        SIM->>EP: set_actuator_value(active command)
+        Note right of SIM: actuators do not latch —<br/>re-asserted every single timestep
+    end
+
+    Note over SIM,LLM: control interval reached (60 sim-min)
+
+    SIM->>BUS: publish_state(BuildingState)
+    SIM->>AG: decide(state) — blocking
+    activate AG
+    Note over AG: deadline = now + 45 s<br/>set once for the whole turn
+
+    AG->>LLM: chat.completions(tools, timeout=remaining)
+    LLM-->>AG: tool_calls[]
+    AG->>MCP: get_current_building_state / history / carbon
+    MCP->>BUS: read snapshot
+    BUS-->>MCP: aggregated state
+    MCP-->>AG: JSON result
+    AG->>LLM: tool results (timeout=remaining)
+    LLM-->>AG: apply_hvac_setpoints(24.8, 20.0)
+    AG->>MCP: apply_hvac_setpoints
+    MCP->>MCP: SetpointCommand validation
+    MCP->>BUS: stage_command
+    MCP-->>AG: accepted
+    AG-->>SIM: AgentDecision source=llm
+    deactivate AG
+
+    alt deadline exceeded or no apply call
+        AG-->>SIM: AgentDecision source=fallback<br/>last accepted command
+        Note over AG,SIM: bounded time guaranteed —<br/>simulation never stalls
+    end
+
+    SIM->>SIM: seasonal park → rate limit → per-zone trim
+    SIM->>BUS: set_active(command)
+```
+
+Five layers keep the turn bounded:
 
 1. **Interval batching (throttling).** The callback fires every sub-hourly
    zone timestep, but `_Accumulator` only aggregates - it does not call the
@@ -177,13 +258,15 @@ bounded:
    command is currently active on *every* timestep regardless, so a slow or
    failed agent turn degrades gracefully to "hold current setpoints" rather
    than ever halting or corrupting the simulation.
-4. **Local inference quantization (deployment-time lever).** The loop is
+4. **Model sizing against VRAM (deployment-time lever).** The loop is
    inference-engine-agnostic (`OpenAI(base_url=..., api_key=...)` against
-   Ollama or vLLM). For interactive-latency demos, a 4-bit/5-bit GGUF quant of
-   an 8B model (`ollama pull llama3.1:8b-instruct-q4_K_M`) comfortably clears a
-   15-25s turn budget on a single consumer GPU; the timeout/fallback machinery
-   above is what makes that a *tuning* choice rather than a correctness
-   requirement.
+   Ollama or vLLM), so model choice is a tuning decision the timeout machinery
+   makes safe rather than a correctness requirement. The decisive factor
+   measured here was not parameter count but **whether the weights fit in
+   VRAM**: on a 4 GB RTX 4050, `llama3.1:8b` (5.6 GB resident) is split
+   25 % GPU / 75 % CPU by Ollama and takes ~18 s per tool call, while
+   `llama3.2:3b` (2.6 GB) runs entirely on the GPU at ~4.5 s — a 4× difference
+   that decides whether the per-turn deadline is reachable at all. See §6.
 5. **Optional non-blocking mode** (`ECOLOOP_NON_BLOCKING_AGENT=true` /
    `--non-blocking`). Runs `Agent.decide()` on a background thread via a
    single-worker `ThreadPoolExecutor`; the simulation thread never waits - it
@@ -226,21 +309,51 @@ not the main data path.
 
 ## 5. Safety envelope (defense in depth)
 
-Three independent layers stand between an LLM output and the simulation:
+Nothing the model emits reaches an actuator unmediated. Five independent stages
+sit between a token and the solver, and **none of them depend on the LLM
+behaving well** — they hold against an adversarial or simply broken response:
 
-1. **Schema validation** (`SetpointCommand` field/model validators) - rejects
-   out-of-policy or physically inconsistent commands outright.
-2. **Rate limiting** (`SetpointCommand.rate_limited`) - clamps *accepted*
-   commands to `POLICY.max_step_per_hour` degC/hour of movement from the
-   previous command, applied unconditionally in `sim_env._on_control_interval`
-   regardless of what the model or the MCP tool already validated.
-3. **Timeout fallback** (`Agent._fallback`) - guarantees a policy-valid command
-   is always returned in bounded time, so a hung or misbehaving model degrades
-   to "hold the last good setpoint," never to an unhandled exception in the
-   EnergyPlus callback.
+```mermaid
+flowchart TD
+    LLM["🧠 LLM emits<br/>apply_hvac_setpoints(cool, heat)"]
 
-None of these three depend on the LLM behaving well; they hold even against an
-adversarial or simply broken model response.
+    V1{"<b>1 · Schema validation</b><br/>SetpointCommand<br/>absolute range · min deadband"}
+    REJ["❌ rejected<br/><i>accepted: false + reason</i><br/>previous setpoints stay active<br/>model may retry"]
+
+    V2["<b>2 · Seasonal changeover</b><br/>seasonal_park()<br/>park the idle mode's setpoint"]
+    V3["<b>3 · Slew limit</b><br/>rate_limited()<br/>≤ 3 °C/h, interval-scaled"]
+    V4["<b>4 · Per-zone trim</b><br/>proportional, ±2 °C<br/>band shift preserves deadband"]
+    ACT["✅ set_actuator_value<br/><i>re-asserted every timestep</i>"]
+
+    FB["<b>5 · Timeout fallback</b><br/>Agent._fallback()<br/>hold last accepted command"]
+
+    LLM --> V1
+    V1 -- "outside policy" --> REJ
+    V1 -- "valid" --> V2
+    V2 --> V3
+    V3 --> V4
+    V4 --> ACT
+    FB -. "deadline exceeded,<br/>error, or no apply call" .-> V2
+
+    classDef ok stroke:#0a840a,stroke-width:2px
+    classDef bad stroke:#c22f2f,stroke-width:2px
+    classDef gate stroke:#eb6834,stroke-width:2px
+    class LLM,V2,V3,V4 gate
+    class ACT ok
+    class REJ,FB bad
+```
+
+| # | Stage | Guarantees |
+|---|---|---|
+| 1 | **Schema validation** — `SetpointCommand` field/model validators | No command outside `ControlPolicy` range, and never a deadband below the minimum (which would make heating and cooling fight). Enforced **server-side in the MCP tool**, so a different prompt cannot bypass it. |
+| 2 | **Seasonal changeover** — `seasonal_park()` | The idle mode's setpoint is pinned to its policy extreme, so the chiller physically cannot start in heating season. Added after a measured **7 % energy regression** caused by exactly that. |
+| 3 | **Slew limit** — `rate_limited()` | Movement capped at `POLICY.max_step_per_hour` °C/h, scaled to the control interval so the permitted ramp is the same physical rate at 15- or 60-minute loops. Stops thermostat hunting. |
+| 4 | **Per-zone trim** — `_update_zone_trims()` | Each zone's band is shifted by a bounded proportional correction from its own PMV. Shifting *both* setpoints together preserves the deadband invariant by construction. |
+| 5 | **Timeout fallback** — `Agent._fallback()` | A policy-valid command is always returned in bounded time. A hung model degrades to "hold the last good setpoint", never to an unhandled exception inside the EnergyPlus callback. |
+
+> **Why this ordering.** Changeover runs *before* the slew limit so the parked
+> value is not itself ramped in slowly; the trim runs last so it operates on the
+> command that will actually be applied.
 
 ## 6. Measured results and tuning findings
 
