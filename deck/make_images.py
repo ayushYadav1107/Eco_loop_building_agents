@@ -25,8 +25,8 @@ SLATE = "#4A5768"
 EMBER = "#D9541F"
 BLUE = "#2A78D6"
 GREEN = "#0D7A4F"
-PAPER = "#FFFFFF"
-RULE = "#D8D3C7"
+PAPER = "#FAF7F2"   # matches the deck's content-slide ground
+RULE = "#DED7C9"
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -35,6 +35,8 @@ plt.rcParams.update({
     "xtick.color": SLATE,
     "ytick.color": SLATE,
     "axes.edgecolor": RULE,
+    "axes.facecolor": PAPER,
+    "savefig.facecolor": PAPER,
 })
 
 
@@ -75,7 +77,7 @@ def architecture() -> None:
     box(*MCP, "MCP server", "FastMCP · 6 validated tools\nover streamable HTTP", EMBER)
     box(*LLM, "Local LLM", "Ollama · llama3.2:3b\nopen source, on-device", GREEN)
     box(*GATE, "Validation gate", "range · deadband · slew\nseasonal changeover",
-        EMBER, fill="#FBF3EE")
+        EMBER, fill="#F6EAE1")
 
     # Outbound leg, left to right along the top.
     arrow((34, 36), (47, 36), BLUE);   tag(40.5, 39.2, "sensors\nevery timestep", BLUE)
