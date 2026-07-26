@@ -7,9 +7,9 @@ Template rules honoured:
     chip above each slide's descriptive title;
   * points and diagrams, not paragraphs.
 
-Layout follows the Gamma reference: 0.8in margin, eyebrow chip, large light
-title, twin 5.6in columns, full-width figure or accent band at the foot. Dark
-tech palette, neon green reserved for positive outcomes.
+Layout follows the Gamma reference: 0.8in margin, eyebrow chip, large title,
+twin 5.6in columns, full-width figure or accent band at the foot. Light palette,
+green reserved for positive outcomes.
 
 All figures come from `make_images.py`, which reads the committed run outputs,
 so the numbers on the slides cannot drift from the repository.
@@ -25,7 +25,7 @@ from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
 
 from style import (AMBER, BLUE_LIGHT, BODY, BODY_INK, COL_2_X, COL_W, GREEN,
-                   INK, MARGIN, MONO, MUTED, PANEL, PANEL_2, TITLE_FONT, WHITE,
+                   INK, MARGIN, MONO, MUTED, PANEL, PANEL_2, TITLE_FONT, TITLE_INK,
                    card, eyebrow, pill, running_head, set_bg,
                    strip_template_content)
 
@@ -43,7 +43,7 @@ STUDENT_ID = "23BAI10006"
 
 
 # --------------------------------------------------------------------------- #
-def retheme_hyperlinks(prs, colour="60A5FA", visited="93A7BD") -> None:
+def retheme_hyperlinks(prs, colour="2563EB", visited="5A6B80") -> None:
     """Repoint the theme's hyperlink colours at the dark palette.
 
     PowerPoint paints hyperlink runs from `a:hlink` in the theme and ignores the
@@ -115,14 +115,14 @@ def textbox(slide, left, top, width, height):
 
 def big_title(slide, text, sub=None, top=1.02):
     box = textbox(slide, MARGIN, top, 11.7, 0.62)
-    write(box, [(text, 27, False, WHITE, TITLE_FONT, False)], space_after=0)
+    write(box, [(text, 27, False, TITLE_INK, TITLE_FONT, False)], space_after=0)
     if sub:
         s = textbox(slide, MARGIN, top + 0.56, 11.7, 0.34)
         write(s, [(sub, 11.5, True, BODY_INK, BODY, False)], space_after=0)
     return box
 
 
-def head(slide, left, top, text, colour=WHITE, width=COL_W):
+def head(slide, left, top, text, colour=TITLE_INK, width=COL_W):
     box = textbox(slide, left, top, width, 0.3)
     write(box, [(text, 13, False, colour, TITLE_FONT, False)], space_after=0)
     return box

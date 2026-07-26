@@ -5,9 +5,12 @@ eyebrow chip naming the section, a large light title beneath it, twin 5.6in
 columns, and a full-width accent band at the foot. The type scale is Gamma's
 too — 27pt title, 13pt section head, 11.5pt body, 9pt eyebrow, 40pt metric.
 
-Palette is the requested dark tech theme rather than Gamma's coral: navy
-ground, neon green reserved for positive outcomes, vibrant blue for structure,
-amber for constraints and the heating setpoint.
+Palette is light: a white ground with pale panels, a sustainability green
+reserved for positive outcomes, a deep tech blue for structure, and a muted
+orange for constraints and the heating setpoint. Every accent is darkened far
+enough to clear 4.5:1 against both the ground and the panels — the dark theme's
+neon green and vibrant blue sit near 1.6:1 and 3.7:1 on white and cannot be
+reused as-is.
 
 Font note. The reference uses Barlow, which is not installed here — PowerPoint
 substitutes silently at export, so the PDF would not carry it either. Segoe UI
@@ -21,22 +24,22 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
 # --------------------------------------------------------------------------- #
-# palette — dark tech
+# palette — light. Contrast against the white ground is given per accent.
 # --------------------------------------------------------------------------- #
-GROUND = RGBColor(0x0E, 0x16, 0x26)     # slide background
-PANEL = RGBColor(0x16, 0x21, 0x3A)      # raised card
-PANEL_2 = RGBColor(0x1B, 0x28, 0x45)    # second-level card
-HAIRLINE = RGBColor(0x24, 0x33, 0x50)
+GROUND = RGBColor(0xFF, 0xFF, 0xFF)     # slide background
+PANEL = RGBColor(0xF1, 0xF5, 0xF9)      # raised card
+PANEL_2 = RGBColor(0xE8, 0xEF, 0xF7)    # second-level card
+HAIRLINE = RGBColor(0xCB, 0xD5, 0xE1)
 
-WHITE = RGBColor(0xFF, 0xFF, 0xFF)
-INK = RGBColor(0xF1, 0xF5, 0xF9)        # primary text
-BODY_INK = RGBColor(0xCB, 0xD5, 0xE1)   # body copy
-MUTED = RGBColor(0x93, 0xA7, 0xBD)      # secondary
+TITLE_INK = RGBColor(0x0B, 0x12, 0x20)  # slide titles          18.9:1
+INK = RGBColor(0x0F, 0x1B, 0x2D)        # primary text          16.6:1
+BODY_INK = RGBColor(0x33, 0x45, 0x5C)   # body copy              9.4:1
+MUTED = RGBColor(0x5A, 0x6B, 0x80)      # secondary              5.4:1
 
-GREEN = RGBColor(0x22, 0xE8, 0x8A)      # neon green — positive outcomes ONLY
-BLUE = RGBColor(0x3B, 0x82, 0xF6)       # vibrant blue — structure
-BLUE_LIGHT = RGBColor(0x60, 0xA5, 0xFA)
-AMBER = RGBColor(0xF5, 0x9E, 0x0B)      # constraints, risks, heating
+GREEN = RGBColor(0x0A, 0x7A, 0x52)      # positive outcomes ONLY 5.4:1
+BLUE = RGBColor(0x1D, 0x4E, 0xD8)       # structure              6.7:1
+BLUE_LIGHT = RGBColor(0x25, 0x63, 0xEB) # links, section heads   5.2:1
+AMBER = RGBColor(0xC2, 0x41, 0x0C)      # constraints, heating   5.2:1
 
 # Requested Barlow -> installed substitute. Swap here after installing Barlow.
 TITLE_FONT = "Segoe UI Semibold"

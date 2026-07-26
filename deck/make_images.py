@@ -20,18 +20,22 @@ from eco_loop import eplus_outputs as eo  # noqa: E402
 OUT = Path(__file__).resolve().parent
 DPI = 200
 
-# Dark tech palette, matching the deck: navy ground, neon green for positive
-# outcomes, vibrant blue for structure, amber for constraints. Figures are drawn
-# ON the dark ground so they sit in the slide rather than in a white box.
-PAPER = "#0E1626"        # slide ground
-PANEL = "#16213A"        # raised panel inside a figure
-INK = "#F1F5F9"          # primary text on dark
-SLATE = "#9FB3C8"        # secondary text
-BLUE = "#3B82F6"         # baseline series / cooling / structure
-BLUE_DEEP = "#60A5FA"    # lifted blue for labels on dark
-GREEN = "#22E88A"        # neon green - AI series, savings, success
-ORANGE = "#F59E0B"       # amber - constraints, heating setpoint
-RULE = "#243350"
+# Light palette, matching deck/style.py: white ground, green for positive
+# outcomes, deep blue for structure, muted orange for constraints. Figures are
+# drawn ON the slide ground so they sit in the slide rather than in a box.
+# Accents are darkened to clear 4.5:1 on white; the dark theme's neon green and
+# vibrant blue read at 1.6:1 and 3.7:1 there and cannot be reused.
+PAPER = "#FFFFFF"        # slide ground
+PANEL = "#F1F5F9"        # raised panel inside a figure
+INK = "#0F1B2D"          # primary text
+SLATE = "#5A6B80"        # secondary text
+BLUE = "#2563EB"         # baseline series / cooling / structure
+BLUE_DEEP = "#1D4ED8"    # deepened blue for small bold labels
+GREEN = "#0A7A52"        # AI series, savings, success
+ORANGE = "#C2410C"       # muted orange - constraints, heating setpoint
+RULE = "#CBD5E1"
+GATE_FILL = "#FDF1E8"    # pale orange wash behind the validation gate
+SHADE = "#64748B"        # occupancy shading, always used with low alpha
 EMBER = ORANGE
 
 plt.rcParams.update({
@@ -83,7 +87,7 @@ def architecture() -> None:
     box(*MCP, "MCP server", "FastMCP · 6 validated tools\nover streamable HTTP", BLUE_DEEP)
     box(*LLM, "Local LLM", "Ollama · llama3.2:3b\nopen source, on-device", GREEN)
     box(*GATE, "Validation gate", "range · deadband · slew\nseasonal changeover",
-        ORANGE, fill="#2A2013")
+        ORANGE, fill=GATE_FILL)
 
     # Outbound leg, left to right along the top.
     arrow((34, 36), (47, 36), BLUE);   tag(40.5, 39.2, "sensors\nevery timestep", BLUE)
@@ -178,7 +182,7 @@ def decisions() -> None:
         if flag and start is None:
             start = i
         elif not flag and start is not None:
-            ax.axvspan(start, i - 1, color="#8FA3BF", alpha=0.13, lw=0)
+            ax.axvspan(start, i - 1, color=SHADE, alpha=0.13, lw=0)
             start = None
 
     ax.plot(cool, color=BLUE, lw=2.0, label="Cooling setpoint")
