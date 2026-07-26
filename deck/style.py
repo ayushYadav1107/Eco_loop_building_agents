@@ -1,14 +1,16 @@
-"""Visual language for the Idea deck.
+"""Visual language for the Idea deck — SIH pitch specification.
 
-Palette is drawn from the project's own identity rather than picked off a
-shelf: ink navy is the ground an HVAC control panel lives on, ember is the
-thermal accent, and the two carry through the dashboard, the figures and the
-slides so the whole submission reads as one artifact.
+Palette: deep tech blue carries structure and headers, sustainability green is
+reserved for positive metrics only, muted orange marks constraints, risks and
+the heating setpoint. Ground is a light off-white for projector readability;
+body text is dark slate rather than pure black.
 
-Structure is a dark/light sandwich — navy opening and closing slides with warm
-content slides between them. The repeated motif is a tinted content card with
-a rounded corner; deliberately NOT an accent stripe or a rule under the title,
-which read as generated filler.
+Typography note. The brief asks for Montserrat/Inter headers, Open Sans/Roboto
+body and JetBrains Mono for code. None of those are installed on the build
+machine, and PowerPoint silently substitutes missing faces at export — so the
+PDF would not contain them either. The closest installed equivalents are used
+instead and named here in one place: install the real families and change these
+three constants to switch.
 """
 from __future__ import annotations
 
@@ -20,50 +22,48 @@ from pptx.util import Inches, Pt
 # --------------------------------------------------------------------------- #
 # palette
 # --------------------------------------------------------------------------- #
-NAVY = RGBColor(0x0E, 0x1A, 0x2B)      # dominant ground, dark slides
-NAVY_SOFT = RGBColor(0x1B, 0x2A, 0x3F)  # raised panel on navy
-PAPER = RGBColor(0xFA, 0xF7, 0xF2)      # content-slide ground, warm not grey
-CARD = RGBColor(0xF2, 0xEC, 0xE2)       # tinted content card
-CARD_COOL = RGBColor(0xE9, 0xEF, 0xF7)  # cool variant, for contrast blocks
+PAPER = RGBColor(0xF8, 0xF9, 0xFA)      # primary background
+CARD = RGBColor(0xFF, 0xFF, 0xFF)       # raised content panel
+CARD_BLUE = RGBColor(0xEF, 0xF4, 0xFF)  # tinted panel, technical content
+CARD_GREEN = RGBColor(0xEC, 0xFD, 0xF3) # tinted panel, results
+CARD_ORANGE = RGBColor(0xFF, 0xF3, 0xEA)  # tinted panel, risks
 
-INK = RGBColor(0x12, 0x1B, 0x2B)        # body text on light
-SLATE = RGBColor(0x4A, 0x57, 0x68)      # secondary text on light
-CHALK = RGBColor(0xF4, 0xF7, 0xFA)      # body text on navy
-MIST = RGBColor(0xA8, 0xBA, 0xCE)       # secondary text on navy
+BLUE = RGBColor(0x25, 0x63, 0xEB)       # primary accent
+BLUE_DEEP = RGBColor(0x1E, 0x3A, 0x8A)  # headers, structural
+GREEN = RGBColor(0x16, 0xA3, 0x4A)      # positive metrics ONLY
+ORANGE = RGBColor(0xEA, 0x58, 0x0C)     # constraints, risks, heating
+INK = RGBColor(0x1E, 0x29, 0x3B)        # body text — dark slate, not black
+SLATE = RGBColor(0x47, 0x55, 0x69)      # secondary text
+HAIRLINE = RGBColor(0xE2, 0xE8, 0xF0)
 
-EMBER = RGBColor(0xD9, 0x54, 0x1F)      # the accent
-EMBER_LIGHT = RGBColor(0xF2, 0x8A, 0x4C)  # accent on navy (lifted for contrast)
-TEAL = RGBColor(0x0D, 0x7A, 0x4F)       # "good" figures on light
-TEAL_LIGHT = RGBColor(0x3F, 0xC1, 0x8B)  # "good" figures on navy
+WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 
-TITLE_FONT = "Cambria"                  # safe-list serif, more character than TNR
-BODY = "Calibri"                        # safe-list sans, warmer than Arial
+# Requested -> installed substitute. Swap these after installing the originals.
+TITLE_FONT = "Segoe UI"    # requested: Montserrat / Inter
+BODY = "Calibri"           # requested: Open Sans / Roboto
+MONO = "Consolas"          # requested: JetBrains Mono / Fira Code
+
+# STRICT footer rule from the brief, applied verbatim to every slide.
+FOOTER_TEMPLATE = "Echo-Loop[source: 1]@SIH Idea submission- Template{n}"
 
 
 # --------------------------------------------------------------------------- #
-# primitives
-# --------------------------------------------------------------------------- #
-def set_bg(slide, colour: RGBColor) -> None:
+def set_bg(slide, colour: RGBColor = PAPER) -> None:
     fill = slide.background.fill
     fill.solid()
     fill.fore_color.rgb = colour
 
 
 def send_to_back(shape) -> None:
-    """Move a shape behind everything else on the slide.
-
-    python-pptx appends new shapes on top, so a card added after the template's
-    text boxes would cover them. spTree children start with nvGrpSpPr and
-    grpSpPr, hence index 2.
-    """
+    """python-pptx appends shapes on top; a panel added after the template's
+    text boxes would cover them. spTree starts with nvGrpSpPr + grpSpPr."""
     sp = shape._element
     tree = sp.getparent()
     tree.remove(sp)
     tree.insert(2, sp)
 
 
-def card(slide, left, top, width, height, *, fill=CARD, line=None, radius=0.035):
-    """The deck's repeated motif: a soft tinted panel behind a content block."""
+def card(slide, left, top, width, height, *, fill=CARD, line=HAIRLINE, radius=0.03):
     shape = slide.shapes.add_shape(
         MSO_SHAPE.ROUNDED_RECTANGLE,
         Inches(left), Inches(top), Inches(width), Inches(height))
@@ -81,35 +81,47 @@ def card(slide, left, top, width, height, *, fill=CARD, line=None, radius=0.035)
     return shape
 
 
-def style_title(slide, colour=INK, size=34) -> None:
-    """Restyle the template's title placeholder without moving it."""
+def style_title(slide, colour=BLUE_DEEP, size=34) -> None:
+    """Bold uppercase header in the title face, per the brief."""
     for sh in slide.shapes:
-        if sh.has_text_frame and sh.name.startswith("Title"):
+        if sh.has_text_frame and sh.name.startswith(("Title", "Subtitle")):
             for para in sh.text_frame.paragraphs:
                 for run in para.runs:
+                    run.text = run.text.upper()
                     run.font.name = TITLE_FONT
                     run.font.size = Pt(size)
                     run.font.bold = True
-                    run.font.color.rgb = colour
                     run.font.italic = False
+                    run.font.color.rgb = colour
 
 
-def style_chrome(slide, colour) -> None:
-    """Footer and slide number, so they stay legible on a navy ground."""
-    for sh in slide.shapes:
-        if not sh.has_text_frame:
-            continue
-        if "Footer" in sh.name or "Slide Number" in sh.name:
+def apply_footer(slide, number: int) -> None:
+    """Replace the template footer with the brief's exact string.
+
+    The template's own footer and slide-number placeholders are emptied rather
+    than restyled, so no fragment of the original wording can survive.
+    """
+    for sh in list(slide.shapes):
+        if sh.has_text_frame and ("Footer" in sh.name or "Slide Number" in sh.name):
+            sh.text_frame.clear()
             for para in sh.text_frame.paragraphs:
                 for run in para.runs:
-                    run.font.color.rgb = colour
-                    run.font.size = Pt(10)
-                    run.font.name = BODY
+                    run.text = ""
+
+    box = slide.shapes.add_textbox(Inches(0.42), Inches(6.98), Inches(12.5), Inches(0.34))
+    tf = box.text_frame
+    tf.word_wrap = False
+    para = tf.paragraphs[0]
+    para.alignment = PP_ALIGN.CENTER
+    run = para.add_run()
+    run.text = FOOTER_TEMPLATE.format(n=number)
+    run.font.name = BODY
+    run.font.size = Pt(9)
+    run.font.color.rgb = SLATE
+    return box
 
 
-def badge(slide, left, top, text, *, fill=EMBER, fg=RGBColor(0xFF, 0xFF, 0xFF),
-          size=0.42, fsize=13):
-    """Small filled marker used to index sections — the secondary motif."""
+def badge(slide, left, top, text, *, fill=BLUE, fg=WHITE, size=0.44, fsize=14):
     shape = slide.shapes.add_shape(
         MSO_SHAPE.OVAL, Inches(left), Inches(top), Inches(size), Inches(size))
     shape.fill.solid()
@@ -123,7 +135,7 @@ def badge(slide, left, top, text, *, fill=EMBER, fg=RGBColor(0xFF, 0xFF, 0xFF),
     para.alignment = PP_ALIGN.CENTER
     run = para.add_run()
     run.text = text
-    run.font.name = BODY
+    run.font.name = TITLE_FONT
     run.font.size = Pt(fsize)
     run.font.bold = True
     run.font.color.rgb = fg

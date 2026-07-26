@@ -20,13 +20,19 @@ from eco_loop import eplus_outputs as eo  # noqa: E402
 OUT = Path(__file__).resolve().parent
 DPI = 200
 
-INK = "#121B2B"
-SLATE = "#4A5768"
-EMBER = "#D9541F"
-BLUE = "#2A78D6"
-GREEN = "#0D7A4F"
-PAPER = "#FAF7F2"   # matches the deck's content-slide ground
-RULE = "#DED7C9"
+# SIH pitch palette: deep tech blue (structure), sustainability green (positive
+# metrics), muted orange (constraints / heating). Blue-green validated CVD-safe
+# on this surface (deutan dE 30.3); green and orange sit in the CVD warn band,
+# so they are never placed on the same chart.
+INK = "#1E293B"          # dark slate body text, never pure black
+SLATE = "#475569"
+BLUE = "#2563EB"         # baseline series / cooling setpoint
+BLUE_DEEP = "#1E3A8A"    # headers, structural elements
+GREEN = "#16A34A"        # AI series, savings, success
+ORANGE = "#EA580C"       # heating setpoint, constraints
+PAPER = "#F8F9FA"        # slide ground
+RULE = "#E2E8F0"
+EMBER = ORANGE           # legacy alias used below
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -74,14 +80,14 @@ def architecture() -> None:
     GATE = (47, 5, 30, 12)    # 47 .. 77, top 17
 
     box(*EP,  "EnergyPlus 26.1", "high-fidelity solver\nrunning in-process", BLUE)
-    box(*MCP, "MCP server", "FastMCP · 6 validated tools\nover streamable HTTP", EMBER)
+    box(*MCP, "MCP server", "FastMCP · 6 validated tools\nover streamable HTTP", BLUE_DEEP)
     box(*LLM, "Local LLM", "Ollama · llama3.2:3b\nopen source, on-device", GREEN)
     box(*GATE, "Validation gate", "range · deadband · slew\nseasonal changeover",
-        EMBER, fill="#F6EAE1")
+        ORANGE, fill="#FEF3EC")
 
     # Outbound leg, left to right along the top.
     arrow((34, 36), (47, 36), BLUE);   tag(40.5, 39.2, "sensors\nevery timestep", BLUE)
-    arrow((77, 36), (90, 36), EMBER);  tag(83.5, 39.2, "building\nstate", EMBER)
+    arrow((77, 36), (90, 36), BLUE_DEEP);  tag(83.5, 39.2, "building\nstate", BLUE_DEEP)
     # Return leg, right to left along the bottom - the loop closing.
     arrow((105, 27), (77, 13), GREEN, rad=-0.18); tag(93, 17.5, "setpoint decision", GREEN)
     arrow((47, 11), (19, 27), BLUE, rad=-0.18);   tag(31, 17.5, "injected into\nlive actuators", BLUE)
@@ -109,10 +115,10 @@ def results() -> None:
     fig.patch.set_facecolor(PAPER)
 
     ax1.fill_between(b_cum["elapsed_days"], a_cum["cumulative_kwh"],
-                     b_cum["cumulative_kwh"], color=GREEN, alpha=0.16, lw=0)
+                     b_cum["cumulative_kwh"], color=GREEN, alpha=0.18, lw=0)
     ax1.plot(b_cum["elapsed_days"], b_cum["cumulative_kwh"], color=BLUE, lw=2.4,
              label=f"Baseline schedule  {cmp_['baseline_kwh']:.0f} kWh")
-    ax1.plot(a_cum["elapsed_days"], a_cum["cumulative_kwh"], color=EMBER, lw=2.4,
+    ax1.plot(a_cum["elapsed_days"], a_cum["cumulative_kwh"], color=GREEN, lw=2.4,
              label=f"AI closed loop  {cmp_['ai_kwh']:.0f} kWh")
     ax1.set_title("HVAC energy, summer week", fontsize=12, fontweight="bold", loc="left", pad=10)
     ax1.set_xlabel("Elapsed days", fontsize=9.5)
@@ -130,7 +136,7 @@ def results() -> None:
     m = bz.merge(az, on="zone", suffixes=("_b", "_a"))
     y = range(len(m))
     ax2.barh([i + 0.19 for i in y], m["pct_in_band_b"], height=0.36, color=BLUE, label="Baseline")
-    ax2.barh([i - 0.19 for i in y], m["pct_in_band_a"], height=0.36, color=EMBER, label="AI closed loop")
+    ax2.barh([i - 0.19 for i in y], m["pct_in_band_a"], height=0.36, color=GREEN, label="AI closed loop")
     ax2.set_yticks(list(y)); ax2.set_yticklabels(m["zone"], fontsize=9)
     ax2.set_xlim(0, 122); ax2.set_xlabel("% of occupied time in PMV band", fontsize=9.5)
     ax2.set_title("Thermal comfort held, per zone", fontsize=12, fontweight="bold",
@@ -175,7 +181,7 @@ def decisions() -> None:
             start = None
 
     ax.plot(cool, color=BLUE, lw=2.0, label="Cooling setpoint")
-    ax.plot(heat, color=EMBER, lw=2.0, label="Heating setpoint")
+    ax.plot(heat, color=ORANGE, lw=2.0, label="Heating setpoint")
     ax.set_xlim(0, len(cool) - 1)
     ax.set_ylabel("Setpoint (°C)", fontsize=9.5)
     ax.set_xlabel("Control interval  ·  168 consecutive agent decisions, one simulated week",
@@ -197,7 +203,7 @@ def decisions() -> None:
              fontsize=9.4, color=INK, fontweight="bold")
     for i, (ts, q) in enumerate(quotes):
         y = 0.185 - i * 0.062
-        fig.text(0.055, y, ts, fontsize=8.6, color=EMBER, fontweight="bold", family="DejaVu Sans")
+        fig.text(0.055, y, ts, fontsize=8.6, color=BLUE_DEEP, fontweight="bold", family="DejaVu Sans")
         fig.text(0.145, y, f"“{q}”", fontsize=9.0, color=SLATE, style="italic")
 
     fig.savefig(OUT / "decisions.png", dpi=DPI, facecolor=PAPER)
