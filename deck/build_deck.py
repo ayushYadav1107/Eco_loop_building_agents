@@ -36,8 +36,10 @@ OUTPUT = HERE / "Echo-Loop_Idea_Deck.pptx"
 REPO_URL = "https://github.com/ayushYadav1107/Eco_loop"
 DEMO_URL = "https://eco-loop-agents.streamlit.app/"
 
-# Only the submitting student can supply these; flagged loudly, never invented.
-TBD = "<<FILL IN>>"
+PS_ID = "1"
+THEME = "Clean & Green Technology"
+STUDENT = "Ayush Yadav"
+STUDENT_ID = "23BAI10006"
 
 
 # --------------------------------------------------------------------------- #
@@ -169,7 +171,7 @@ def main() -> None:
         running_head(slide, n)
 
     # ==================================================== 1 · TITLE & HOOK
-    eyebrow(s1, "Title Page")
+    eyebrow(s1, "Autonomous Building Energy Management")
     big_title(s1, "Echo-Loop: A Building That Runs Itself",
               "Autonomous closed-loop HVAC control using EnergyPlus, MCP and a "
               "local open-source LLM.")
@@ -189,10 +191,10 @@ def main() -> None:
 
     ident = textbox(s1, MARGIN, 4.66, 7.3, 1.1)
     write(ident, [
-        (f"Problem Statement ID  {TBD}      ·      Theme  {TBD}",
-         11.5, True, AMBER, BODY, False),
-        ("PS Category  Software      ·      Student  Ayush Yadav      ·      "
-         f"Student ID  {TBD}", 11.5, False, BODY_INK, BODY, False),
+        (f"Problem Statement ID  {PS_ID}      ·      Theme  {THEME}",
+         11.5, True, INK, BODY, False),
+        (f"PS Category  Software      ·      Student  {STUDENT}      ·      "
+         f"Student ID  {STUDENT_ID}", 11.5, False, BODY_INK, BODY, False),
     ], space_after=6)
 
     links = textbox(s1, 8.4, 4.66, 4.13, 1.1)
@@ -228,7 +230,7 @@ def main() -> None:
         x += w + 0.13
 
     # =============================================== 2 · SOLUTION & INNOVATION
-    eyebrow(s2, "Idea Title")
+    eyebrow(s2, "Proposed Solution & Innovation")
     big_title(s2, "Traditional BMS follow rigid clock schedules.",
               "Echo-Loop turns the building into a self-correcting agent.")
 

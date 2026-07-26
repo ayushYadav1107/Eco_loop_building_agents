@@ -146,7 +146,8 @@ def results() -> None:
     ax2.legend(frameon=False, fontsize=9.2, ncol=2,
                loc="lower left", bbox_to_anchor=(0, 1.005))
     for i, v in enumerate(m["pct_in_band_a"]):
-        ax2.text(v + 2.5, i - 0.19, f"{v:.0f}%", va="center", fontsize=8.4, color=SLATE)
+        ax2.text(v + 2.5, i - 0.19, f"{v:.0f}%", va="center", fontsize=8.8,
+                 color=INK, fontweight="bold")
     for s in ("top", "right"):
         ax2.spines[s].set_visible(False)
     ax2.grid(axis="x", color=RULE, lw=0.8)
@@ -311,7 +312,7 @@ def comfort_dist() -> None:
         ax.fill_between(centres, dens, color=col, alpha=0.13)
 
     ax.axvline(0, color=SLATE, lw=1)
-    ax.text(0.52, 0.05, "neutral", transform=ax.transAxes, fontsize=8.2, color=SLATE)
+    ax.text(0.515, 0.93, "neutral", transform=ax.transAxes, fontsize=8.4, color=INK)
     ax.set_xlabel("PMV — occupied hours", fontsize=9)
     ax.set_yticks([])
     ax.set_title("Comfort was not traded away", fontsize=11, fontweight="bold",
