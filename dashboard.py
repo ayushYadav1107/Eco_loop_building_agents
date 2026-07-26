@@ -82,31 +82,58 @@ DARK: bool = st.session_state.dark_mode
 # rendering, so the two agree on first load and the toggle only ever moves the
 # page away from that starting point deliberately.
 
-# Each mode's values are selected for its own surface, not flipped from the other.
+# --------------------------------------------------------------------------- #
+# Visual identity: "drafting table / thermal instrument"
+#
+# The subject is building physics, so the page borrows from the two places this
+# work actually lives: an architect's drafting sheet and an HVAC control panel.
+#   light  - warm vellum, ink linework, a faint drafting grid
+#   dark   - a control room at night, cool ink ground, ember readouts
+# Both grounds are *tinted*, never neutral grey, which is what keeps it from
+# looking like a default dashboard.
+#
+# The series hues are NOT chosen for the theme - they stay the CVD-validated
+# blue/orange pair, which happens to read as cool/warm and suits a thermal
+# subject. Character comes from the ground, the type and the motion; the data
+# layer keeps its accessibility guarantees untouched.
+# --------------------------------------------------------------------------- #
 PALETTE: Dict[str, str] = {
-    "baseline":  "#3987e5" if DARK else "#2a78d6",
-    "ai":        "#d95926" if DARK else "#eb6834",
-    "page":      "#0d0d0d" if DARK else "#f9f9f7",
-    "surface":   "#1a1a19" if DARK else "#ffffff",
-    "text":      "#f5f5f3" if DARK else "#111111",
-    "secondary": "#c9c8be" if DARK else "#4a4945",
-    "muted":     "#a3a199" if DARK else "#6a6864",
-    "grid":      "#2c2c2a" if DARK else "#e4e3dc",
-    "axis":      "#4a4a46" if DARK else "#bdbcb4",
-    "good":      "#12b312" if DARK else "#0a840a",
-    "critical":  "#e05a5a" if DARK else "#c22f2f",
-    "band":      "rgba(18,179,18,0.14)" if DARK else "rgba(10,132,10,0.10)",
+    "baseline":  "#3987e5" if DARK else "#2a78d6",   # validated series slot 1
+    # Slot 2 is re-stepped for light mode. The stock orange (#eb6834) clears
+    # 3:1 on a near-white surface but only manages 2.74:1 on this warmer
+    # vellum ground - a real regression the restyle introduced. #d9541f is the
+    # darker step that restores it (3.43:1) and was re-validated as a pair
+    # against this exact surface: all six checks pass, CVD dE 25.9.
+    "ai":        "#d95926" if DARK else "#d9541f",   # validated series slot 2
+    "page":      "#080b11" if DARK else "#f2ede1",   # ink ground / warm vellum
+    "surface":   "#11161f" if DARK else "#fbf8f1",
+    "text":      "#eef3f8" if DARK else "#14181f",
+    "secondary": "#9fb3c6" if DARK else "#4b5561",
+    "muted":     "#7d90a3" if DARK else "#5f6875",
+    "grid":      "#1c2531" if DARK else "#ddd6c6",
+    "axis":      "#33404f" if DARK else "#bab2a0",
+    "good":      "#2bb673" if DARK else "#0d7a4f",
+    "critical":  "#e8615c" if DARK else "#b8342f",
+    "band":      "rgba(43,182,115,0.13)" if DARK else "rgba(13,122,79,0.10)",
+    # Drafting linework: the faint ruled grid behind the whole page.
+    "rule":      "rgba(120,160,200,0.055)" if DARK else "rgba(90,80,55,0.055)",
+    "glow":      "rgba(217,89,38,0.13)" if DARK else "rgba(235,104,52,0.10)",
 }
 PALETTE["cool_sp"] = PALETTE["baseline"]   # semantic: cool hue = cooling setpoint
 PALETTE["heat_sp"] = PALETTE["ai"]         # semantic: warm hue = heating setpoint
-# The hero figure is text, not a mark, and it sits on a tinted panel of its own
-# hue - which eats contrast. The series orange measures only 2.67:1 there on the
-# light surface, under the 3:1 minimum for large text; a darker step of the same
-# hue restores it to 4.55:1 without changing the colour identity. Dark mode
-# already clears the bar (4.49:1), so it keeps the series step.
-PALETTE["hero_fig"] = PALETTE["ai"] if DARK else "#b8431c"
+# The hero figure is text on a tint of its own hue, which eats contrast: the
+# series orange measures only 2.67:1 there on the light ground, under the 3:1
+# large-text minimum. A darker step of the same hue restores it without
+# changing the colour identity. Dark already clears the bar and keeps its step.
+PALETTE["hero_fig"] = PALETTE["ai"] if DARK else "#a3380f"
 
-FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif'
+# Archivo is a grotesque with industrial-signage bones - it suits instrument
+# panels and stays legible at small sizes. IBM Plex Mono carries every number:
+# in a measurement context monospaced figures read as *readings*, and its
+# tabular widths keep columns and axis ticks from shifting between renders.
+FONT_UI = "'Archivo', 'Helvetica Neue', sans-serif"
+FONT_MONO = "'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace"
+FONT = FONT_UI  # charts default to UI type; ticks and readouts switch to mono
 
 
 def rgba(hex_color: str, alpha: float) -> str:
@@ -118,18 +145,20 @@ def base_layout(height: int = 320, y_title: str = "", x_title: str = "") -> dict
     axis = dict(
         showgrid=True, gridcolor=PALETTE["grid"], gridwidth=1, zeroline=False,
         linecolor=PALETTE["axis"], linewidth=1,
-        tickfont=dict(color=PALETTE["muted"], size=13),
-        title_font=dict(color=PALETTE["secondary"], size=14),
+        # Mono ticks: axis values are readings, and tabular figures stop the
+        # scale from jittering as digits change.
+        tickfont=dict(color=PALETTE["muted"], size=12, family=FONT_MONO),
+        title_font=dict(color=PALETTE["secondary"], size=13, family=FONT_UI),
     )
     return dict(
         height=height, margin=dict(t=46, l=8, r=8, b=8),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=FONT, color=PALETTE["secondary"], size=14),
-        hoverlabel=dict(font_size=14, font_family=FONT,
+        font=dict(family=FONT_UI, color=PALETTE["secondary"], size=13),
+        hoverlabel=dict(font_size=13, font_family=FONT_MONO,
                         bgcolor=PALETTE["surface"], font_color=PALETTE["text"],
                         bordercolor=PALETTE["axis"]),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
-                    font=dict(color=PALETTE["text"], size=14)),
+                    font=dict(color=PALETTE["text"], size=13, family=FONT_UI)),
         xaxis={**axis, "title": x_title},
         yaxis={**axis, "title": y_title},
     )
@@ -140,22 +169,83 @@ def base_layout(height: int = 320, y_title: str = "", x_title: str = "") -> dict
 st.markdown(
     f"""
     <style>
-      html, body, .stApp {{ background: {PALETTE['page']} !important; }}
-      header[data-testid="stHeader"] {{ background: {PALETTE['page']} !important; }}
+      @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+      /* --- the ground ------------------------------------------------------
+         Three stacked layers, cheapest first: a drafting rule grid, a warm
+         thermal bloom behind the hero, and the tinted base. Nothing here
+         animates or repaints - it is a static backdrop, so it costs one
+         composite and never competes with the charts. */
+      html, body, .stApp {{
+        background-color: {PALETTE['page']} !important;
+        background-image:
+          linear-gradient({PALETTE['rule']} 1px, transparent 1px),
+          linear-gradient(90deg, {PALETTE['rule']} 1px, transparent 1px),
+          radial-gradient(900px 420px at 18% -6%, {PALETTE['glow']}, transparent 70%);
+        background-size: 46px 46px, 46px 46px, 100% 100%;
+        background-attachment: fixed;
+      }}
+      header[data-testid="stHeader"] {{ background: transparent !important; }}
       [data-testid="stToolbar"] * {{ color: {PALETTE['secondary']} !important; }}
-      .block-container {{ padding-top: 2rem; max-width: 1560px; }}
+      .block-container {{ padding-top: 1.6rem; max-width: 1560px; }}
 
       .stApp, .stApp p, .stApp li, .stApp span, .stApp label, .stApp div {{
-        color: {PALETTE['text']};
+        color: {PALETTE['text']}; font-family: {FONT_UI};
       }}
-      .stApp p, .stApp li {{ font-size: 1rem; line-height: 1.6; }}
-      h1 {{ font-size: 2.1rem !important; letter-spacing: -0.02em; }}
-      h2 {{ font-size: 1.5rem !important; margin-top: .4rem !important; }}
+      .stApp p, .stApp li {{ font-size: 1rem; line-height: 1.62; }}
+
+      h1 {{
+        font-family: {FONT_UI} !important; font-weight: 700 !important;
+        font-size: 2.15rem !important; letter-spacing: -0.028em;
+        text-transform: uppercase;
+      }}
+      h2 {{
+        font-family: {FONT_UI} !important; font-weight: 600 !important;
+        font-size: 1.28rem !important; letter-spacing: .01em;
+        margin-top: .4rem !important;
+      }}
       h1, h2, h3, h4 {{ color: {PALETTE['text']} !important; }}
+      /* Section headings get a drafting tick in the accent, so the eye can
+         find the structure without another font size. */
+      h2::before {{
+        content: ""; display: inline-block; width: 10px; height: 10px;
+        margin-right: .6rem; vertical-align: middle;
+        border-left: 2px solid {PALETTE['ai']};
+        border-bottom: 2px solid {PALETTE['ai']};
+      }}
 
       [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{
         color: {PALETTE['secondary']} !important;
-        font-size: 0.95rem !important; line-height: 1.55;
+        font-size: 0.94rem !important; line-height: 1.58;
+      }}
+
+      /* --- one orchestrated page load -------------------------------------
+         A single staggered slide down the column, rather than scattered hover
+         tricks.
+
+         Deliberately animates TRANSFORM ONLY, never opacity. An opacity fade
+         with fill-mode `both` holds the from-state, so if the animation does
+         not advance - a backgrounded tab, a non-composited surface, a
+         Streamlit remount mid-flight - the content is stuck invisible. That
+         was observed in testing: the page title and hero sat at opacity 0.
+         Animating position alone means the worst case is "already in place",
+         never "blank page". Cheap insurance for something shown live. */
+      @keyframes ecoRise {{
+        from {{ transform: translateY(9px); }}
+        to   {{ transform: none; }}
+      }}
+      [data-testid="stMain"] [data-testid="stVerticalBlock"] > div {{
+        animation: ecoRise .48s cubic-bezier(.22,.7,.3,1) backwards;
+      }}
+      {" ".join(
+          f'[data-testid="stMain"] [data-testid="stVerticalBlock"] > div:nth-child({i}) '
+          f'{{ animation-delay: {i * 42}ms; }}'
+          for i in range(1, 15)
+      )}
+      @media (prefers-reduced-motion: reduce) {{
+        [data-testid="stMain"] [data-testid="stVerticalBlock"] > div {{
+          animation: none !important;
+        }}
       }}
 
       section[data-testid="stSidebar"] {{
@@ -165,18 +255,31 @@ st.markdown(
       section[data-testid="stSidebar"] * {{ color: {PALETTE['text']} !important; }}
       section[data-testid="stSidebar"] p {{ font-size: 0.95rem; }}
 
+      /* Metric tiles read as instrument readouts: squared corners, a hairline
+         rule, an accent tab on the leading edge, and monospaced figures. */
       div[data-testid="stMetric"] {{
-        border: 1px solid {rgba(PALETTE['text'], 0.12)};
-        border-radius: 12px; padding: .9rem 1.1rem;
+        border: 1px solid {rgba(PALETTE['text'], 0.14)};
+        border-left: 3px solid {rgba(PALETTE['ai'], 0.55)};
+        border-radius: 3px; padding: .85rem 1.05rem;
         background: {PALETTE['surface']};
+        transition: border-left-color .18s ease, transform .18s ease;
+      }}
+      div[data-testid="stMetric"]:hover {{
+        border-left-color: {PALETTE['ai']}; transform: translateY(-1px);
       }}
       div[data-testid="stMetricLabel"] p {{
-        color: {PALETTE['secondary']} !important; font-size: .95rem !important;
+        color: {PALETTE['secondary']} !important;
+        font-size: .74rem !important; font-weight: 600;
+        text-transform: uppercase; letter-spacing: .09em;
       }}
       div[data-testid="stMetricValue"] {{
-        color: {PALETTE['text']} !important; font-size: 2rem !important;
+        color: {PALETTE['text']} !important; font-size: 1.95rem !important;
+        font-family: {FONT_MONO} !important; font-weight: 500;
+        letter-spacing: -0.02em;
       }}
-      div[data-testid="stMetricDelta"] {{ font-size: .9rem !important; }}
+      div[data-testid="stMetricDelta"] {{
+        font-size: .84rem !important; font-family: {FONT_MONO} !important;
+      }}
 
       [data-testid="stExpander"] details {{
         border: 1px solid {rgba(PALETTE['text'], 0.12)} !important;
@@ -194,48 +297,70 @@ st.markdown(
         border: 1px solid {rgba(PALETTE['ai'], 0.35)}; border-radius: 10px;
       }}
       [data-testid="stAlert"] * {{ color: {PALETTE['text']} !important; }}
-      hr {{ border-color: {rgba(PALETTE['text'], 0.12)} !important; }}
+      hr {{ border-color: {rgba(PALETTE['text'], 0.14)} !important; }}
 
+      /* The hero is the one loud element: a corner-cut instrument plate with
+         the headline reading in monospace, sized so it is legible across a
+         room during a demo. */
       .eco-hero {{
-        display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;
-        padding: 1.3rem 1.6rem; border-radius: 14px; margin: .2rem 0 1.2rem 0;
-        border: 1px solid {rgba(PALETTE['ai'], 0.40)};
-        background: {rgba(PALETTE['ai'], 0.12)};
+        display:flex; align-items:center; gap:1.6rem; flex-wrap:wrap;
+        padding: 1.35rem 1.7rem; margin: .2rem 0 1.3rem 0;
+        border: 1px solid {rgba(PALETTE['ai'], 0.45)};
+        border-radius: 3px;
+        background:
+          linear-gradient(135deg, {rgba(PALETTE['ai'], 0.16)}, {rgba(PALETTE['ai'], 0.05)} 60%),
+          {PALETTE['surface']};
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+        position: relative;
       }}
       .eco-hero .fig {{
-        font-size: 62px; font-weight: 660; line-height: 1;
-        letter-spacing: -0.025em; color: {PALETTE['hero_fig']};
+        font-family: {FONT_MONO}; font-size: 64px; font-weight: 600;
+        line-height: 1; letter-spacing: -0.035em; color: {PALETTE['hero_fig']};
+        text-shadow: 0 0 26px {rgba(PALETTE['ai'], 0.30)};
       }}
       .eco-hero .cap {{
-        font-size: 1.05rem; line-height: 1.55; color: {PALETTE['text']}; max-width: 46rem;
+        font-size: 1.04rem; line-height: 1.58; color: {PALETTE['text']}; max-width: 46rem;
       }}
       .eco-sec {{
-        font-size: 1rem; line-height: 1.6; color: {PALETTE['secondary']};
+        font-size: .99rem; line-height: 1.62; color: {PALETTE['secondary']};
         margin: -.2rem 0 1rem 0; max-width: 70rem;
       }}
+      /* Chart titles: small caps with a leading rule - a plate label, not a heading. */
       .eco-ct {{
-        font-weight: 600; font-size: 1.08rem; color: {PALETTE['text']};
-        margin: .3rem 0 .35rem 0;
+        font-weight: 600; font-size: .8rem; color: {PALETTE['text']};
+        text-transform: uppercase; letter-spacing: .1em;
+        margin: .45rem 0 .5rem 0; padding-left: .6rem;
+        border-left: 2px solid {rgba(PALETTE['ai'], 0.75)};
       }}
 
       /* Tables are hand-rendered so they follow the toggle; the built-in
-         dataframe paints to a canvas and would ignore all of the above. */
-      .eco-tbl-wrap {{ max-height: 330px; overflow: auto; border-radius: 8px;
-        border: 1px solid {rgba(PALETTE['text'], 0.12)}; }}
-      table.eco-tbl {{ width: 100%; border-collapse: collapse; font-size: .9rem;
-        font-variant-numeric: tabular-nums; background: {PALETTE['surface']}; }}
+         dataframe paints to a canvas and would ignore all of the above.
+         Numbers are monospaced and right-aligned so columns scan vertically. */
+      .eco-tbl-wrap {{ max-height: 330px; overflow: auto; border-radius: 3px;
+        border: 1px solid {rgba(PALETTE['text'], 0.14)}; }}
+      table.eco-tbl {{ width: 100%; border-collapse: collapse; font-size: .86rem;
+        font-family: {FONT_MONO}; font-variant-numeric: tabular-nums;
+        background: {PALETTE['surface']}; }}
       table.eco-tbl th {{
-        position: sticky; top: 0; text-align: left; font-weight: 600;
+        position: sticky; top: 0; text-align: left;
+        font-family: {FONT_UI}; font-weight: 600; font-size: .72rem;
+        text-transform: uppercase; letter-spacing: .07em;
         background: {PALETTE['surface']}; color: {PALETTE['text']};
-        padding: .5rem .7rem; border-bottom: 1px solid {rgba(PALETTE['text'], 0.18)};
+        padding: .55rem .7rem; border-bottom: 1px solid {rgba(PALETTE['text'], 0.2)};
         white-space: nowrap;
       }}
       table.eco-tbl td {{
-        padding: .42rem .7rem; color: {PALETTE['secondary']};
+        padding: .4rem .7rem; color: {PALETTE['secondary']};
         border-bottom: 1px solid {rgba(PALETTE['text'], 0.07)};
       }}
-      table.eco-tbl tr:hover td {{ background: {rgba(PALETTE['ai'], 0.07)}; }}
+      table.eco-tbl tr:hover td {{ background: {rgba(PALETTE['ai'], 0.08)}; }}
       table.eco-tbl td.num {{ text-align: right; }}
+
+      /* Sidebar reads as the panel edge of the instrument. */
+      section[data-testid="stSidebar"] h1 {{
+        font-size: 1.15rem !important; letter-spacing: .06em;
+      }}
+      [data-testid="stExpander"] summary {{ font-family: {FONT_UI}; }}
     </style>
     """,
     unsafe_allow_html=True,
