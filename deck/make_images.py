@@ -211,7 +211,124 @@ def decisions() -> None:
     print("wrote decisions.png")
 
 
+
+
+# --------------------------------------------------------------------------- #
+def pipeline() -> None:
+    """The safety envelope from ARCHITECTURE.md §5 - five stages between an LLM
+    token and an actuator, plus the rejection path."""
+    fig, ax = plt.subplots(figsize=(12.4, 1.72), dpi=DPI)
+    ax.set_xlim(0, 124); ax.set_ylim(0, 17); ax.axis("off")
+    fig.patch.set_facecolor(PAPER)
+
+    stages = [
+        ("1  SCHEMA", "range · deadband", BLUE),
+        ("2  CHANGEOVER", "park the idle mode", ORANGE),
+        ("3  SLEW LIMIT", "≤ 3 °C / hour", ORANGE),
+        ("4  PER-ZONE TRIM", "each zone's own PMV", BLUE),
+        ("5  FALLBACK", "hold last good command", GREEN),
+    ]
+    w, gap = 20.5, 3.6
+    for i, (title, sub, col) in enumerate(stages):
+        x = 2 + i * (w + gap)
+        ax.add_patch(FancyBboxPatch(
+            (x, 3.4), w, 8.2, boxstyle="round,pad=0,rounding_size=1.1",
+            linewidth=1.8, edgecolor=col, facecolor="#FFFFFF", zorder=2))
+        ax.text(x + w / 2, 9.3, title, ha="center", va="center",
+                fontsize=9.0, fontweight="bold", color=col, zorder=3)
+        ax.text(x + w / 2, 5.6, sub, ha="center", va="center",
+                fontsize=8.0, color=SLATE, zorder=3)
+        if i < len(stages) - 1:
+            ax.add_patch(FancyArrowPatch(
+                (x + w, 7.5), (x + w + gap, 7.5), arrowstyle="-|>",
+                mutation_scale=15, linewidth=1.8, color=SLATE, zorder=1))
+
+    ax.text(2, 14.8, "EVERY COMMAND PASSES FIVE GATES BEFORE IT REACHES AN ACTUATOR",
+            ha="left", va="center", fontsize=9.6, fontweight="bold", color=BLUE_DEEP)
+    ax.text(2, 1.2, "Rejected commands return accepted: false with a reason — the previous "
+            "setpoints stay in force and the model can retry.",
+            ha="left", va="center", fontsize=8.2, color=SLATE, style="italic")
+
+    fig.tight_layout(pad=0.2)
+    fig.savefig(OUT / "pipeline.png", dpi=DPI, facecolor=PAPER)
+    plt.close(fig)
+    print("wrote pipeline.png")
+
+
+def timeline() -> None:
+    """One control interval, end to end - the §3 sequence as a time strip."""
+    fig, ax = plt.subplots(figsize=(12.4, 1.32), dpi=DPI)
+    ax.set_xlim(0, 124); ax.set_ylim(0, 13); ax.axis("off")
+    fig.patch.set_facecolor(PAPER)
+
+    ax.plot([4, 120], [6, 6], color=RULE, lw=3, solid_capstyle="round", zorder=1)
+
+    # sixteen sensor ticks, then the agent turn
+    for i in range(16):
+        x = 5 + i * 3.6
+        ax.plot([x, x], [4.2, 7.8], color=BLUE, lw=1.9, solid_capstyle="round", zorder=2)
+    ax.text(33, 1.6, "sensors sampled every zone timestep  ·  no LLM call",
+            ha="center", fontsize=8.4, color=BLUE)
+
+    for x, col, lab in ((70, BLUE_DEEP, "publish\nstate"),
+                        (86, GREEN, "LLM turn\n2.1 s median"),
+                        (102, ORANGE, "validate"),
+                        (116, BLUE, "inject")):
+        ax.add_patch(FancyBboxPatch(
+            (x - 6.4, 2.4), 12.8, 7.2, boxstyle="round,pad=0,rounding_size=1.0",
+            linewidth=1.7, edgecolor=col, facecolor="#FFFFFF", zorder=3))
+        ax.text(x, 6, lab, ha="center", va="center", fontsize=8.0,
+                fontweight="bold", color=col, zorder=4, linespacing=1.35)
+
+    ax.text(4, 11.4, "ONE CONTROL INTERVAL  ·  60 SIMULATED MINUTES",
+            ha="left", va="center", fontsize=9.6, fontweight="bold", color=BLUE_DEEP)
+    ax.text(120, 11.4, "the solver is stopped only for the agent turn",
+            ha="right", va="center", fontsize=8.4, color=SLATE, style="italic")
+
+    fig.tight_layout(pad=0.2)
+    fig.savefig(OUT / "timeline.png", dpi=DPI, facecolor=PAPER)
+    plt.close(fig)
+    print("wrote timeline.png")
+
+
+def comfort_dist() -> None:
+    """Where occupants actually sat on the comfort scale - the strongest single
+    piece of evidence that the savings were not taken out of comfort."""
+    import numpy as np
+    base = eo.occupied_comfort(ROOT / "outputs" / "baseline", 7)
+    ai = eo.occupied_comfort(ROOT / "outputs" / "ai", 7)
+
+    fig, ax = plt.subplots(figsize=(6.1, 2.75), dpi=DPI)
+    fig.patch.set_facecolor("#FFFFFF")
+    ax.set_facecolor("#FFFFFF")
+    edges = np.linspace(-2.0, 1.5, 40)
+    centres = (edges[:-1] + edges[1:]) / 2
+    ax.axvspan(-0.5, 0.5, color=GREEN, alpha=0.10, lw=0)
+
+    for res, name, col in ((base, "Baseline", BLUE), (ai, "AI closed loop", GREEN)):
+        dens, _ = np.histogram(res["series"], bins=edges, density=True)
+        ax.plot(centres, dens, color=col, lw=2.2, label=f"{name}  mean {res['mean_pmv']:+.2f}")
+        ax.fill_between(centres, dens, color=col, alpha=0.13)
+
+    ax.axvline(0, color=SLATE, lw=1)
+    ax.text(0.52, 0.05, "neutral", transform=ax.transAxes, fontsize=8.2, color=SLATE)
+    ax.set_xlabel("PMV — occupied hours", fontsize=9)
+    ax.set_yticks([])
+    ax.set_title("Comfort was not traded away", fontsize=11, fontweight="bold",
+                 loc="left", color=INK, pad=8)
+    ax.legend(frameon=False, fontsize=8.6, loc="upper left")
+    for s in ("top", "right", "left"):
+        ax.spines[s].set_visible(False)
+    fig.tight_layout(pad=0.6)
+    fig.savefig(OUT / "comfort_dist.png", dpi=DPI, facecolor="#FFFFFF")
+    plt.close(fig)
+    print("wrote comfort_dist.png")
+
+
 if __name__ == "__main__":
     architecture()
     results()
     decisions()
+    pipeline()
+    timeline()
+    comfort_dist()

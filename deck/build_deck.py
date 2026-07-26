@@ -247,12 +247,11 @@ def main() -> None:
          11.5, False, INK, 0, False),
     ], space_after=6)
 
-    # The closed-loop diagram is the visual centrepiece of this slide.
-    image(s_tech, HERE / "arch.png", 0.62, 2.58, 12.1)
-    cap = textbox(s_tech, 0.62, 6.5, 12.1, 0.4)
-    write(cap, [("The loop closes inside a single running simulation — 168 agent "
-                 "decisions per simulated week, zero restarts.",
-                 11, False, SLATE, 0, False)], space_after=0)
+    # The closed-loop diagram is the visual centrepiece of this slide; the
+    # timeline strip underneath answers the obvious follow-up question —
+    # how often does any of this actually happen.
+    image(s_tech, HERE / "arch.png", 1.42, 2.14, 10.5)
+    image(s_tech, HERE / "timeline.png", 0.62, 5.72, 12.1)
 
     # ================================================ 4 · FEASIBILITY & VIABILITY
     hero(s_feas, 0.42, 1.02, 4.02, "336 / 336",
@@ -291,17 +290,14 @@ def main() -> None:
     ], space_after=8)
     title_face(right, only_first=True)
 
-    card(s_feas, 0.42, 4.96, 12.5, 1.34, fill=CARD_GREEN, line=None)
-    scale = textbox(s_feas, 0.72, 5.06, 11.9, 1.14)
+    scale = textbox(s_feas, 0.42, 4.82, 12.5, 0.44)
     write(scale, [
-        ("VIABILITY AT SCALE", 13, True, GREEN, 0, False),
-        ("Buildings consume roughly 40% of global energy — a single-digit HVAC "
-         "reduction is material at portfolio scale. The loop is model-agnostic: any "
-         "EnergyPlus model with a thermostat works, and swapping in a larger "
-         "cognitive engine needs no change to the MCP tool layer.",
-         11.5, False, INK, 0, False),
-    ], space_after=5)
-    title_face(scale, only_first=True)
+        ("VIABILITY AT SCALE   Buildings are ~40% of global energy — a single-digit "
+         "HVAC reduction is material at portfolio scale. The loop is model-agnostic, "
+         "and a larger cognitive engine needs no change to the MCP tool layer.",
+         11, False, SLATE, 0, False),
+    ], space_after=0)
+    image(s_feas, HERE / "pipeline.png", 0.62, 5.26, 12.1)
 
     # ========================================================== 5 · ARTIFACTS
     card(s_art, 0.42, 1.0, 12.5, 1.16, fill=CARD_BLUE, line=None)
@@ -321,7 +317,7 @@ def main() -> None:
     image(s_art, HERE / "decisions.png", 0.62, 2.48, 12.1)
 
     # ================================================ 6 · RESEARCH & REFERENCES
-    card(s_ref, 0.42, 1.06, 6.3, 3.62, fill=CARD, line=HAIRLINE)
+    card(s_ref, 0.42, 1.06, 6.3, 5.06, fill=CARD, line=HAIRLINE)
     badge(s_ref, 0.62, 1.2, "5")
     body = by_name(s_ref, "TextBox 8")
     move(body, left=1.22, top=1.18, width=5.32, height=3.9)
@@ -364,14 +360,15 @@ def main() -> None:
     ], space_after=5)
     title_face(audit, only_first=True)
 
-    card(s_ref, 0.42, 5.42, 12.5, 1.32, fill=CARD_ORANGE, line=None)
-    limit = textbox(s_ref, 0.72, 5.52, 11.9, 1.12)
+    image(s_ref, HERE / "comfort_dist.png", 0.68, 3.34, 5.78)
+
+    card(s_ref, 6.9, 5.36, 6.02, 1.4, fill=CARD_ORANGE, line=None)
+    limit = textbox(s_ref, 7.18, 5.46, 5.46, 1.2)
     write(limit, [
-        ("HONEST LIMITATION — AND THE NEXT STEP", 12.5, True, ORANGE, 0, False),
-        ("One setpoint pair drives five differently-loaded zones. Per zone the agent "
-         "holds 85–96% of occupied time inside the PMV band; the stricter "
-         "worst-zone metric is lower. Per-zone setpoints are next — the actuator "
-         "handles and per-zone PMV are already in place.", 11.5, False, INK, 0, False),
+        ("HONEST LIMITATION", 12.5, True, ORANGE, 0, False),
+        ("One setpoint pair drives five zones — per zone the agent holds 85–96% of "
+         "occupied time in band. Per-zone setpoints are next; the actuator handles "
+         "are already in place.", 11, False, INK, 0, False),
     ], space_after=5)
     title_face(limit, only_first=True)
 

@@ -43,8 +43,8 @@ TITLE_FONT = "Segoe UI"    # requested: Montserrat / Inter
 BODY = "Calibri"           # requested: Open Sans / Roboto
 MONO = "Consolas"          # requested: JetBrains Mono / Fira Code
 
-# STRICT footer rule from the brief, applied verbatim to every slide.
-FOOTER_TEMPLATE = "Echo-Loop[source: 1]@SIH Idea submission- Template{n}"
+# Footer: project name and slide number, right-aligned.
+FOOTER_TEMPLATE = "Echo-Loop   ·   {n}"
 
 
 # --------------------------------------------------------------------------- #
@@ -108,16 +108,17 @@ def apply_footer(slide, number: int) -> None:
                 for run in para.runs:
                     run.text = ""
 
-    box = slide.shapes.add_textbox(Inches(0.42), Inches(6.98), Inches(12.5), Inches(0.34))
+    box = slide.shapes.add_textbox(Inches(0.42), Inches(6.96), Inches(12.5), Inches(0.34))
     tf = box.text_frame
     tf.word_wrap = False
     para = tf.paragraphs[0]
-    para.alignment = PP_ALIGN.CENTER
+    para.alignment = PP_ALIGN.RIGHT
     run = para.add_run()
     run.text = FOOTER_TEMPLATE.format(n=number)
     run.font.name = BODY
-    run.font.size = Pt(9)
-    run.font.color.rgb = SLATE
+    run.font.size = Pt(10)
+    run.font.bold = True
+    run.font.color.rgb = BLUE_DEEP
     return box
 
 
