@@ -1,14 +1,35 @@
 # Eco-Loop Building Agents
 
-Autonomous, LLM-in-the-loop HVAC supervision for EnergyPlus. A local
-open-source LLM (Llama 3 / Mistral via Ollama or vLLM) receives live building
-telemetry through an MCP tool server every 15-60 simulated minutes, reasons
-about the energy/carbon/comfort trade-off, and injects validated setpoints
-back into the running simulation - closing the loop that a static BMS schedule
-never can.
+**A building that runs itself.** EnergyPlus supplies the physics, a local
+open-source LLM supplies the judgement, and the Model Context Protocol carries
+every reading and every command between them — *while the simulation is still
+running*.
+
+[**▶ Live dashboard**](https://eco-loop-agents.streamlit.app/) ·
+[Architecture](ARCHITECTURE.md) ·
+[Idea deck (PDF)](deck/Eco-Loop_Building_Agents_Idea.pdf)
+
+| | Baseline schedule | AI closed loop | |
+|---|---|---|---|
+| **Summer week** HVAC energy | 396.9 kWh | **363.0 kWh** | **−8.5 %** |
+| **Winter week** HVAC energy | 67.6 kWh | **65.1 kWh** | **−3.7 %** |
+| Mean occupied PMV, summer | −0.43 | **−0.02** | closer to neutral |
+| Agent turns | — | **336 / 336** | 0 fallbacks · 0 timeouts |
+
+Traditional building management systems follow rigid clock schedules. Eco-Loop
+turns the building into a self-correcting agent: sensors are read every zone
+timestep, the aggregated state goes to the LLM through six MCP tools once per
+control interval, and the validated setpoints are written straight into the
+live solver through the EnergyPlus actuator API — no IDF rewrite, no restart,
+so the loop closes *inside* a single simulation.
+
+Everything runs locally on one consumer laptop: no cloud inference, no API
+keys, no per-query cost. Results are reproducible — the controller runs at
+temperature 0, so repeated runs return identical totals.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design rationale
-(tool-calling bridge, latency management, log handling, safety envelope).
+(tool-calling bridge, latency management, log handling, safety envelope) and
+the tuning findings behind these numbers.
 
 ## Directory structure
 
@@ -157,7 +178,7 @@ imports neither `pyenergyplus` nor the LLM client. That makes it deployable to
 
 1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
 2. **New app → Deploy a public app from GitHub**, then set:
-   - Repository `ayushYadav1107/Eco_loop_building_agents`
+   - Repository `ayushYadav1107/Eco_loop`
    - Branch `main`
    - Main file path `dashboard.py`
    - Python version **3.11 or newer** (under *Advanced settings*)

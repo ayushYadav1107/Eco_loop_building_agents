@@ -322,7 +322,7 @@ def main() -> None:
     body = by_name(s_art, "TextBox 8")
     move(body, left=1.02, top=1.16, width=11.6, height=1.16)
     write(body, [
-        ("Code   github.com/ayushYadav1107/Eco_loop_building_agents", 12.5, True, EMBER, 0, False),
+        ("Code   github.com/ayushYadav1107/Eco_loop", 12.5, True, EMBER, 0, False),
         ("Baseline and runtime-generated .idf models, the full agent decision trail "
          "(agent_decisions.jsonl), per-timestep EnergyPlus results and the savings "
          "dashboard are all committed — a fresh clone reproduces these figures.",
@@ -353,7 +353,7 @@ def main() -> None:
         ("Meta Llama 3.2 served locally through Ollama — ollama.com", 11, False, CHALK, 0, True),
         ("Project", 13, True, EMBER_LIGHT, 0, False),
         ("Repository, architecture document and reproducible results — "
-         "github.com/ayushYadav1107/Eco_loop_building_agents", 11, False, CHALK, 0, True),
+         "github.com/ayushYadav1107/Eco_loop", 11, False, CHALK, 0, True),
     ], space_after=6)
 
     card(s_ref, 6.9, 1.2, 6.0, 2.02, fill=NAVY_SOFT)
