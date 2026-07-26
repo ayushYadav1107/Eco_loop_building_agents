@@ -1,0 +1,27 @@
+# ---------------------------------------------------------------------------
+# Closed-loop simulation extras — needed by main.py, the MCP server and the
+# agent, but NOT by the dashboard. Install alongside requirements.txt:
+#
+#     pip install -r requirements.txt -r requirements-sim.txt
+#
+# Kept separate because Streamlit Community Cloud installs requirements.txt on
+# every cold start, and the deployed dashboard imports none of these.
+# ---------------------------------------------------------------------------
+
+# --- Cognitive layer -------------------------------------------------------
+openai>=1.40.0            # OpenAI-compatible client, pointed at Ollama / vLLM
+fastmcp>=2.3.0            # MCP server + client (tool exposure over HTTP)
+pydantic>=2.6.0           # Strict schema validation of LLM actuator commands
+
+# --- Utilities -------------------------------------------------------------
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# --- Deck generation (optional) --------------------------------------------
+# python-pptx>=1.0.0      # uncomment to rebuild deck/ from the template
+# matplotlib>=3.7.0
+
+# NOTE: `pyenergyplus` is NOT a PyPI package. It ships inside the EnergyPlus
+# installation directory (e.g. C:\EnergyPlusV26-1-0 or /usr/local/EnergyPlus-...).
+# `config.bootstrap_energyplus()` puts that directory on sys.path at runtime.
+# Install EnergyPlus 9.5+ from https://energyplus.net/downloads

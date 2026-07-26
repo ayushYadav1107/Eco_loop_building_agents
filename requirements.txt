@@ -1,19 +1,14 @@
-# --- Cognitive layer -------------------------------------------------------
-openai>=1.40.0            # OpenAI-compatible client, pointed at Ollama / vLLM
-fastmcp>=2.3.0            # MCP server + client (tool exposure over HTTP)
-pydantic>=2.6.0           # Strict schema validation of LLM actuator commands
-
-# --- Data / dashboard ------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Dashboard runtime — what `streamlit run dashboard.py` actually imports.
+#
+# Streamlit Community Cloud installs THIS file and nothing else, so it is kept
+# to the app's real import set: the dashboard reads committed EnergyPlus
+# results and never touches the simulation or the LLM.
+#
+#   To run the closed loop as well (main.py run-ai), install BOTH:
+#       pip install -r requirements.txt -r requirements-sim.txt
+# ---------------------------------------------------------------------------
+streamlit>=1.32.0
+plotly>=5.18.0
 pandas>=2.0.0
 numpy>=1.24.0
-plotly>=5.18.0
-streamlit>=1.32.0
-
-# --- Utilities -------------------------------------------------------------
-python-dotenv>=1.0.0
-requests>=2.31.0
-
-# NOTE: `pyenergyplus` is NOT a PyPI package. It ships inside the EnergyPlus
-# installation directory (e.g. C:\EnergyPlusV9-6-0 or /usr/local/EnergyPlus-9-6-0).
-# `config.bootstrap_energyplus()` puts that directory on sys.path at runtime.
-# Install EnergyPlus 9.5+ from https://energyplus.net/downloads

@@ -141,6 +141,23 @@ def rgba(hex_color: str, alpha: float) -> str:
     return f"rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{alpha})"
 
 
+def mix(fg: str, bg: str, alpha: float) -> str:
+    """Flatten `fg` at `alpha` over `bg` into an opaque hex.
+
+    Hover states use this rather than a translucent fill: a translucent hover
+    composites against whatever sits behind the control, so it renders
+    differently in the sidebar than in the main column, and it leaves the
+    result dependent on a base colour a future edit might change.
+    """
+    f = fg.lstrip("#")
+    b = bg.lstrip("#")
+    out = [
+        round(alpha * int(f[i:i + 2], 16) + (1 - alpha) * int(b[i:i + 2], 16))
+        for i in (0, 2, 4)
+    ]
+    return "#" + "".join(f"{c:02x}" for c in out)
+
+
 def base_layout(height: int = 320, y_title: str = "", x_title: str = "") -> dict:
     axis = dict(
         showgrid=True, gridcolor=PALETTE["grid"], gridwidth=1, zeroline=False,
@@ -305,6 +322,64 @@ st.markdown(
       input, select, textarea {{
         background: {PALETTE['surface']} !important; color: {PALETTE['text']} !important;
       }}
+
+      /* --- interactive states ----------------------------------------------
+         Base colours were themed but hover/focus/active were not, so Streamlit's
+         defaults showed through: on a dark ground the button and the expander
+         header flashed near-white on hover, with white-on-white label text.
+         Every state is pinned here, for buttons, expander headers and the
+         download/fullscreen chrome Plotly adds. */
+      .stButton > button,
+      button[data-testid="stBaseButton-secondary"],
+      button[data-testid="stBaseButton-secondaryFormSubmit"],
+      [data-testid="stSidebar"] .stButton > button {{
+        background: {PALETTE['surface']} !important;
+        color: {PALETTE['text']} !important;
+        border: 1px solid {rgba(PALETTE['text'], 0.22)} !important;
+        border-radius: 3px !important;
+        font-family: {FONT_UI} !important; font-weight: 600;
+        transition: background .15s ease, border-color .15s ease;
+      }}
+      .stButton > button:hover,
+      button[data-testid="stBaseButton-secondary"]:hover,
+      [data-testid="stSidebar"] .stButton > button:hover {{
+        background: {mix(PALETTE['ai'], PALETTE['surface'], 0.18)} !important;
+        color: {PALETTE['text']} !important;
+        border-color: {PALETTE['ai']} !important;
+      }}
+      .stButton > button:active,
+      .stButton > button:focus,
+      .stButton > button:focus-visible,
+      button[data-testid="stBaseButton-secondary"]:active,
+      button[data-testid="stBaseButton-secondary"]:focus {{
+        background: {mix(PALETTE['ai'], PALETTE['surface'], 0.30)} !important;
+        color: {PALETTE['text']} !important;
+        border-color: {PALETTE['ai']} !important;
+        box-shadow: none !important; outline: none !important;
+      }}
+      .stButton > button * {{ color: {PALETTE['text']} !important; }}
+
+      [data-testid="stExpander"] summary {{
+        background: {PALETTE['surface']} !important;
+        color: {PALETTE['text']} !important;
+        border-radius: 3px; transition: background .15s ease;
+      }}
+      [data-testid="stExpander"] summary:hover,
+      [data-testid="stExpander"] summary:focus,
+      [data-testid="stExpander"] details[open] > summary {{
+        background: {mix(PALETTE['ai'], PALETTE['surface'], 0.15)} !important;
+        color: {PALETTE['text']} !important;
+        box-shadow: none !important;
+      }}
+      [data-testid="stExpander"] summary:hover *,
+      [data-testid="stExpander"] details[open] > summary * {{
+        color: {PALETTE['text']} !important;
+      }}
+
+      /* Plotly's toolbar buttons sit on the chart, so they inherit nothing. */
+      .modebar-btn path {{ fill: {PALETTE['muted']} !important; }}
+      .modebar-btn:hover path {{ fill: {PALETTE['ai']} !important; }}
+      .modebar-group {{ background: transparent !important; }}
       [data-testid="stAlert"] {{
         background: {rgba(PALETTE['ai'], 0.10)} !important;
         border: 1px solid {rgba(PALETTE['ai'], 0.35)}; border-radius: 10px;
@@ -366,7 +441,7 @@ st.markdown(
         padding: .4rem .7rem; color: {PALETTE['secondary']};
         border-bottom: 1px solid {rgba(PALETTE['text'], 0.07)};
       }}
-      table.eco-tbl tr:hover td {{ background: {rgba(PALETTE['ai'], 0.08)}; }}
+      table.eco-tbl tr:hover td {{ background: {mix(PALETTE['ai'], PALETTE['surface'], 0.10)}; }}
       table.eco-tbl td.num {{ text-align: right; }}
 
       /* Sidebar reads as the panel edge of the instrument. */

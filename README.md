@@ -134,12 +134,39 @@ for why runtime injection is used instead of iterative `.idf` regeneration.
    (`C:\EnergyPlusV9-6-0`, `/Applications/EnergyPlus-9-6-0`,
    `/usr/local/EnergyPlus-9-6-0`); otherwise set `ENERGYPLUS_DIR` in `.env`.
 2. **Python 3.9+** (the version EnergyPlus 9.5+ ships `pyenergyplus` bindings for).
-3. **Ollama** (or vLLM) serving an OpenAI-compatible endpoint:
+3. **Ollama** (or vLLM) serving an OpenAI-compatible endpoint. Pick the model
+   by what fits your VRAM — see [`ARCHITECTURE.md` §3](ARCHITECTURE.md); a 3B
+   model that fits entirely on the GPU beats an 8B one that does not:
    ```bash
-   ollama pull llama3.1:8b-instruct-q4_K_M
+   ollama pull llama3.2:3b
    ollama serve
    ```
-4. `pip install -r requirements.txt`
+4. Dependencies — two files, because the dashboard needs far less than the loop:
+   ```bash
+   pip install -r requirements.txt -r requirements-sim.txt
+   ```
+   `requirements.txt` alone is enough to run **only** the dashboard against the
+   committed results (no EnergyPlus, no Ollama). That is also all Streamlit
+   Community Cloud installs.
+
+## Deploy the dashboard
+
+The dashboard reads committed EnergyPlus results, so it runs anywhere — it
+imports neither `pyenergyplus` nor the LLM client. That makes it deployable to
+**Streamlit Community Cloud** as-is:
+
+1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
+2. **New app → Deploy a public app from GitHub**, then set:
+   - Repository `ayushYadav1107/Eco_loop_building_agents`
+   - Branch `main`
+   - Main file path `dashboard.py`
+   - Python version **3.11 or newer** (under *Advanced settings*)
+3. Deploy. First build takes a couple of minutes.
+
+The deployed app opens on the summer week and the sidebar switches to winter —
+both runs' results are committed, so nothing needs to be regenerated. Running
+the closed loop itself still requires a local EnergyPlus and Ollama; the cloud
+build has neither, which is exactly why the two requirements files are split.
 
 ## Quickstart
 
