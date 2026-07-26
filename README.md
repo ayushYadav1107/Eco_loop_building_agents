@@ -169,25 +169,6 @@ for why runtime injection is used instead of iterative `.idf` regeneration.
    committed results (no EnergyPlus, no Ollama). That is also all Streamlit
    Community Cloud installs.
 
-## Deploy the dashboard
-
-The dashboard reads committed EnergyPlus results, so it runs anywhere — it
-imports neither `pyenergyplus` nor the LLM client. That makes it deployable to
-**Streamlit Community Cloud** as-is:
-
-1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
-2. **New app → Deploy a public app from GitHub**, then set:
-   - Repository `ayushYadav1107/Eco_loop`
-   - Branch `main`
-   - Main file path `dashboard.py`
-   - Python version **3.11 or newer** (under *Advanced settings*)
-3. Deploy. First build takes a couple of minutes.
-
-The deployed app opens on the summer week and the sidebar switches to winter —
-both runs' results are committed, so nothing needs to be regenerated. Running
-the closed loop itself still requires a local EnergyPlus and Ollama; the cloud
-build has neither, which is exactly why the two requirements files are split.
-
 ## Quickstart
 
 ```bash
