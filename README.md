@@ -1,4 +1,4 @@
-# Eco-Loop Building Agents
+# Echo-Loop Building Agents
 
 **A building that runs itself.** EnergyPlus supplies the physics, a local
 open-source LLM supplies the judgement, and the Model Context Protocol carries
@@ -7,7 +7,6 @@ running*.
 
 [**▶ Live dashboard**](https://eco-loop-agents.streamlit.app/) ·
 [Architecture](ARCHITECTURE.md) ·
-[Idea deck (PDF)](deck/Eco-Loop_Building_Agents_Idea.pdf)
 
 | | Baseline schedule | AI closed loop | |
 |---|---|---|---|
