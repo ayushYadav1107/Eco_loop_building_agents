@@ -20,19 +20,19 @@ from eco_loop import eplus_outputs as eo  # noqa: E402
 OUT = Path(__file__).resolve().parent
 DPI = 200
 
-# SIH pitch palette: deep tech blue (structure), sustainability green (positive
-# metrics), muted orange (constraints / heating). Blue-green validated CVD-safe
-# on this surface (deutan dE 30.3); green and orange sit in the CVD warn band,
-# so they are never placed on the same chart.
-INK = "#1E293B"          # dark slate body text, never pure black
-SLATE = "#475569"
-BLUE = "#2563EB"         # baseline series / cooling setpoint
-BLUE_DEEP = "#1E3A8A"    # headers, structural elements
-GREEN = "#16A34A"        # AI series, savings, success
-ORANGE = "#EA580C"       # heating setpoint, constraints
-PAPER = "#F8F9FA"        # slide ground
-RULE = "#E2E8F0"
-EMBER = ORANGE           # legacy alias used below
+# Dark tech palette, matching the deck: navy ground, neon green for positive
+# outcomes, vibrant blue for structure, amber for constraints. Figures are drawn
+# ON the dark ground so they sit in the slide rather than in a white box.
+PAPER = "#0E1626"        # slide ground
+PANEL = "#16213A"        # raised panel inside a figure
+INK = "#F1F5F9"          # primary text on dark
+SLATE = "#9FB3C8"        # secondary text
+BLUE = "#3B82F6"         # baseline series / cooling / structure
+BLUE_DEEP = "#60A5FA"    # lifted blue for labels on dark
+GREEN = "#22E88A"        # neon green - AI series, savings, success
+ORANGE = "#F59E0B"       # amber - constraints, heating setpoint
+RULE = "#243350"
+EMBER = ORANGE
 
 plt.rcParams.update({
     "font.family": "DejaVu Sans",
@@ -55,7 +55,7 @@ def architecture() -> None:
 
     # pad=0 so the drawn rectangle is exactly (x, y, w, h); with any padding the
     # real edge sits outside these coordinates and arrows start inside the box.
-    def box(x, y, w, h, title, sub, edge, fill="#FFFFFF", tsize=11.5, ssize=8.6):
+    def box(x, y, w, h, title, sub, edge, fill=PANEL, tsize=11.5, ssize=8.6):
         ax.add_patch(FancyBboxPatch(
             (x, y), w, h, boxstyle="round,pad=0,rounding_size=1.4",
             linewidth=1.9, edgecolor=edge, facecolor=fill, zorder=2))
@@ -83,7 +83,7 @@ def architecture() -> None:
     box(*MCP, "MCP server", "FastMCP · 6 validated tools\nover streamable HTTP", BLUE_DEEP)
     box(*LLM, "Local LLM", "Ollama · llama3.2:3b\nopen source, on-device", GREEN)
     box(*GATE, "Validation gate", "range · deadband · slew\nseasonal changeover",
-        ORANGE, fill="#FEF3EC")
+        ORANGE, fill="#2A2013")
 
     # Outbound leg, left to right along the top.
     arrow((34, 36), (47, 36), BLUE);   tag(40.5, 39.2, "sensors\nevery timestep", BLUE)
@@ -177,7 +177,7 @@ def decisions() -> None:
         if flag and start is None:
             start = i
         elif not flag and start is not None:
-            ax.axvspan(start, i - 1, color="#9AA5B1", alpha=0.16, lw=0)
+            ax.axvspan(start, i - 1, color="#8FA3BF", alpha=0.13, lw=0)
             start = None
 
     ax.plot(cool, color=BLUE, lw=2.0, label="Cooling setpoint")
@@ -233,7 +233,7 @@ def pipeline() -> None:
         x = 2 + i * (w + gap)
         ax.add_patch(FancyBboxPatch(
             (x, 3.4), w, 8.2, boxstyle="round,pad=0,rounding_size=1.1",
-            linewidth=1.8, edgecolor=col, facecolor="#FFFFFF", zorder=2))
+            linewidth=1.8, edgecolor=col, facecolor=PANEL, zorder=2))
         ax.text(x + w / 2, 9.3, title, ha="center", va="center",
                 fontsize=9.0, fontweight="bold", color=col, zorder=3)
         ax.text(x + w / 2, 5.6, sub, ha="center", va="center",
@@ -276,7 +276,7 @@ def timeline() -> None:
                         (116, BLUE, "inject")):
         ax.add_patch(FancyBboxPatch(
             (x - 6.4, 2.4), 12.8, 7.2, boxstyle="round,pad=0,rounding_size=1.0",
-            linewidth=1.7, edgecolor=col, facecolor="#FFFFFF", zorder=3))
+            linewidth=1.7, edgecolor=col, facecolor=PANEL, zorder=3))
         ax.text(x, 6, lab, ha="center", va="center", fontsize=8.0,
                 fontweight="bold", color=col, zorder=4, linespacing=1.35)
 
@@ -299,11 +299,11 @@ def comfort_dist() -> None:
     ai = eo.occupied_comfort(ROOT / "outputs" / "ai", 7)
 
     fig, ax = plt.subplots(figsize=(6.1, 2.75), dpi=DPI)
-    fig.patch.set_facecolor("#FFFFFF")
-    ax.set_facecolor("#FFFFFF")
+    fig.patch.set_facecolor(PANEL)
+    ax.set_facecolor(PANEL)
     edges = np.linspace(-2.0, 1.5, 40)
     centres = (edges[:-1] + edges[1:]) / 2
-    ax.axvspan(-0.5, 0.5, color=GREEN, alpha=0.10, lw=0)
+    ax.axvspan(-0.5, 0.5, color=GREEN, alpha=0.13, lw=0)
 
     for res, name, col in ((base, "Baseline", BLUE), (ai, "AI closed loop", GREEN)):
         dens, _ = np.histogram(res["series"], bins=edges, density=True)
@@ -320,7 +320,7 @@ def comfort_dist() -> None:
     for s in ("top", "right", "left"):
         ax.spines[s].set_visible(False)
     fig.tight_layout(pad=0.6)
-    fig.savefig(OUT / "comfort_dist.png", dpi=DPI, facecolor="#FFFFFF")
+    fig.savefig(OUT / "comfort_dist.png", dpi=DPI, facecolor=PANEL)
     plt.close(fig)
     print("wrote comfort_dist.png")
 

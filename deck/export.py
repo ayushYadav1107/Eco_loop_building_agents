@@ -11,8 +11,8 @@ from pathlib import Path
 import win32com.client
 
 HERE = Path(__file__).resolve().parent
-DECK = HERE / "Eco-Loop_Building_Agents_Idea.pptx"
-PDF = HERE / "Eco-Loop_Building_Agents_Idea.pdf"
+DECK = HERE / "Echo-Loop_Idea_Deck.pptx"
+PDF = HERE / "Echo-Loop_Idea_Deck.pdf"
 SHOTS = HERE / "shots"
 
 PP_SAVE_AS_PDF = 32

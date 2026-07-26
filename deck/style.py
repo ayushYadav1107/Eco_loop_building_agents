@@ -1,16 +1,17 @@
-"""Visual language for the Idea deck — SIH pitch specification.
+"""Visual language for the Echo-Loop Idea deck.
 
-Palette: deep tech blue carries structure and headers, sustainability green is
-reserved for positive metrics only, muted orange marks constraints, risks and
-the heating setpoint. Ground is a light off-white for projector readability;
-body text is dark slate rather than pure black.
+Layout grammar is taken from the Gamma reference deck: a 0.8in margin, an
+eyebrow chip naming the section, a large light title beneath it, twin 5.6in
+columns, and a full-width accent band at the foot. The type scale is Gamma's
+too — 27pt title, 13pt section head, 11.5pt body, 9pt eyebrow, 40pt metric.
 
-Typography note. The brief asks for Montserrat/Inter headers, Open Sans/Roboto
-body and JetBrains Mono for code. None of those are installed on the build
-machine, and PowerPoint silently substitutes missing faces at export — so the
-PDF would not contain them either. The closest installed equivalents are used
-instead and named here in one place: install the real families and change these
-three constants to switch.
+Palette is the requested dark tech theme rather than Gamma's coral: navy
+ground, neon green reserved for positive outcomes, vibrant blue for structure,
+amber for constraints and the heating setpoint.
+
+Font note. The reference uses Barlow, which is not installed here — PowerPoint
+substitutes silently at export, so the PDF would not carry it either. Segoe UI
+(the closest installed grotesque) is used instead, named in one place below.
 """
 from __future__ import annotations
 
@@ -20,50 +21,48 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Inches, Pt
 
 # --------------------------------------------------------------------------- #
-# palette
+# palette — dark tech
 # --------------------------------------------------------------------------- #
-PAPER = RGBColor(0xF8, 0xF9, 0xFA)      # primary background
-CARD = RGBColor(0xFF, 0xFF, 0xFF)       # raised content panel
-CARD_BLUE = RGBColor(0xEF, 0xF4, 0xFF)  # tinted panel, technical content
-CARD_GREEN = RGBColor(0xEC, 0xFD, 0xF3) # tinted panel, results
-CARD_ORANGE = RGBColor(0xFF, 0xF3, 0xEA)  # tinted panel, risks
-
-BLUE = RGBColor(0x25, 0x63, 0xEB)       # primary accent
-BLUE_DEEP = RGBColor(0x1E, 0x3A, 0x8A)  # headers, structural
-GREEN = RGBColor(0x16, 0xA3, 0x4A)      # positive metrics ONLY
-ORANGE = RGBColor(0xEA, 0x58, 0x0C)     # constraints, risks, heating
-INK = RGBColor(0x1E, 0x29, 0x3B)        # body text — dark slate, not black
-SLATE = RGBColor(0x47, 0x55, 0x69)      # secondary text
-HAIRLINE = RGBColor(0xE2, 0xE8, 0xF0)
+GROUND = RGBColor(0x0E, 0x16, 0x26)     # slide background
+PANEL = RGBColor(0x16, 0x21, 0x3A)      # raised card
+PANEL_2 = RGBColor(0x1B, 0x28, 0x45)    # second-level card
+HAIRLINE = RGBColor(0x24, 0x33, 0x50)
 
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
+INK = RGBColor(0xF1, 0xF5, 0xF9)        # primary text
+BODY_INK = RGBColor(0xCB, 0xD5, 0xE1)   # body copy
+MUTED = RGBColor(0x93, 0xA7, 0xBD)      # secondary
 
-# Requested -> installed substitute. Swap these after installing the originals.
-TITLE_FONT = "Segoe UI"    # requested: Montserrat / Inter
-BODY = "Calibri"           # requested: Open Sans / Roboto
-MONO = "Consolas"          # requested: JetBrains Mono / Fira Code
+GREEN = RGBColor(0x22, 0xE8, 0x8A)      # neon green — positive outcomes ONLY
+BLUE = RGBColor(0x3B, 0x82, 0xF6)       # vibrant blue — structure
+BLUE_LIGHT = RGBColor(0x60, 0xA5, 0xFA)
+AMBER = RGBColor(0xF5, 0x9E, 0x0B)      # constraints, risks, heating
 
-# Footer: project name and slide number, right-aligned.
-FOOTER_TEMPLATE = "Echo-Loop   ·   {n}"
+# Requested Barlow -> installed substitute. Swap here after installing Barlow.
+TITLE_FONT = "Segoe UI Semibold"
+BODY = "Segoe UI"
+MONO = "Consolas"
+
+MARGIN = 0.8
+COL_W = 5.6
+COL_2_X = 6.93
 
 
 # --------------------------------------------------------------------------- #
-def set_bg(slide, colour: RGBColor = PAPER) -> None:
+def set_bg(slide, colour: RGBColor = GROUND) -> None:
     fill = slide.background.fill
     fill.solid()
     fill.fore_color.rgb = colour
 
 
 def send_to_back(shape) -> None:
-    """python-pptx appends shapes on top; a panel added after the template's
-    text boxes would cover them. spTree starts with nvGrpSpPr + grpSpPr."""
     sp = shape._element
     tree = sp.getparent()
     tree.remove(sp)
     tree.insert(2, sp)
 
 
-def card(slide, left, top, width, height, *, fill=CARD, line=HAIRLINE, radius=0.03):
+def card(slide, left, top, width, height, *, fill=PANEL, line=None, radius=0.04):
     shape = slide.shapes.add_shape(
         MSO_SHAPE.ROUNDED_RECTANGLE,
         Inches(left), Inches(top), Inches(width), Inches(height))
@@ -81,52 +80,15 @@ def card(slide, left, top, width, height, *, fill=CARD, line=HAIRLINE, radius=0.
     return shape
 
 
-def style_title(slide, colour=BLUE_DEEP, size=34) -> None:
-    """Bold uppercase header in the title face, per the brief."""
-    for sh in slide.shapes:
-        if sh.has_text_frame and sh.name.startswith(("Title", "Subtitle")):
-            for para in sh.text_frame.paragraphs:
-                for run in para.runs:
-                    run.text = run.text.upper()
-                    run.font.name = TITLE_FONT
-                    run.font.size = Pt(size)
-                    run.font.bold = True
-                    run.font.italic = False
-                    run.font.color.rgb = colour
-
-
-def apply_footer(slide, number: int) -> None:
-    """Replace the template footer with the brief's exact string.
-
-    The template's own footer and slide-number placeholders are emptied rather
-    than restyled, so no fragment of the original wording can survive.
-    """
-    for sh in list(slide.shapes):
-        if sh.has_text_frame and ("Footer" in sh.name or "Slide Number" in sh.name):
-            sh.text_frame.clear()
-            for para in sh.text_frame.paragraphs:
-                for run in para.runs:
-                    run.text = ""
-
-    box = slide.shapes.add_textbox(Inches(0.42), Inches(6.96), Inches(12.5), Inches(0.34))
-    tf = box.text_frame
-    tf.word_wrap = False
-    para = tf.paragraphs[0]
-    para.alignment = PP_ALIGN.RIGHT
-    run = para.add_run()
-    run.text = FOOTER_TEMPLATE.format(n=number)
-    run.font.name = BODY
-    run.font.size = Pt(10)
-    run.font.bold = True
-    run.font.color.rgb = BLUE_DEEP
-    return box
-
-
-def badge(slide, left, top, text, *, fill=BLUE, fg=WHITE, size=0.44, fsize=14):
+def pill(slide, left, top, text, *, fg=GREEN, bg=None, fsize=9):
+    """Gamma's tag pill: a rounded chip with small uppercase text."""
+    width = 0.082 * len(text) + 0.30
     shape = slide.shapes.add_shape(
-        MSO_SHAPE.OVAL, Inches(left), Inches(top), Inches(size), Inches(size))
+        MSO_SHAPE.ROUNDED_RECTANGLE, Inches(left), Inches(top),
+        Inches(width), Inches(0.27))
+    shape.adjustments[0] = 0.5
     shape.fill.solid()
-    shape.fill.fore_color.rgb = fill
+    shape.fill.fore_color.rgb = bg or PANEL_2
     shape.line.fill.background()
     shape.shadow.inherit = False
     tf = shape.text_frame
@@ -135,9 +97,71 @@ def badge(slide, left, top, text, *, fill=BLUE, fg=WHITE, size=0.44, fsize=14):
     para = tf.paragraphs[0]
     para.alignment = PP_ALIGN.CENTER
     run = para.add_run()
-    run.text = text
-    run.font.name = TITLE_FONT
+    run.text = text.upper()
+    run.font.name = BODY
     run.font.size = Pt(fsize)
     run.font.bold = True
     run.font.color.rgb = fg
-    return shape
+    return shape, width
+
+
+def strip_template_content(slide) -> None:
+    """Remove every shape the SIH template ships on the slide.
+
+    The template's body boxes carry 28-32pt prompt text ("Problem Statement
+    ID -", "Student Name ...") and their own list/justification formatting. The
+    deck now composes each slide from scratch, so leaving them behind renders
+    that prompt text as giant ghost copy underneath the real content — which is
+    exactly what happened on the first build. Everything is rebuilt explicitly.
+    """
+    for sh in list(slide.shapes):
+        sh._element.getparent().remove(sh._element)
+
+
+def eyebrow(slide, text, *, colour=GREEN):
+    """Gamma's section chip: small uppercase label above the title.
+
+    The SIH "idea details pointer" for each slide is carried here verbatim, so
+    the required section names survive even though the layout is rebuilt.
+    """
+    box = slide.shapes.add_textbox(Inches(MARGIN), Inches(0.56), Inches(7.0), Inches(0.3))
+    tf = box.text_frame
+    tf.word_wrap = False
+    tf.margin_left = tf.margin_top = tf.margin_bottom = 0
+    para = tf.paragraphs[0]
+    para.alignment = PP_ALIGN.LEFT
+    run = para.add_run()
+    run.text = text.upper()
+    run.font.name = BODY
+    run.font.size = Pt(10)
+    run.font.bold = True
+    run.font.color.rgb = colour
+    return box
+
+
+def strip_bottom_chrome(slide) -> None:
+    """Delete the template's footer and slide-number placeholders outright.
+
+    Emptying them leaves invisible shapes that still occupy the layout and
+    still surface in any later audit; the brief asks for them gone.
+    """
+    for sh in list(slide.shapes):
+        if "Footer" in sh.name or "Slide Number" in sh.name or "Date" in sh.name:
+            sh._element.getparent().remove(sh._element)
+
+
+def running_head(slide, number: int) -> None:
+    """'Echo-Loop' on the left, slide number on the right. No box, no rule."""
+    left = slide.shapes.add_textbox(Inches(MARGIN), Inches(6.94), Inches(4.0), Inches(0.32))
+    p = left.text_frame.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    r = p.add_run(); r.text = "Echo-Loop"
+    r.font.name = BODY; r.font.size = Pt(10); r.font.bold = True
+    r.font.color.rgb = MUTED
+
+    right = slide.shapes.add_textbox(Inches(8.5), Inches(6.94), Inches(4.03), Inches(0.32))
+    p = right.text_frame.paragraphs[0]
+    p.alignment = PP_ALIGN.RIGHT
+    r = p.add_run(); r.text = str(number)
+    r.font.name = BODY; r.font.size = Pt(10); r.font.bold = True
+    r.font.color.rgb = GREEN
