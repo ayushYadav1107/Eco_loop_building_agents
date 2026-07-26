@@ -41,6 +41,24 @@ POC/
     └── ai/                       # AI-driven run's outputs + agent_decisions.jsonl
 ```
 
+## Requirements coverage
+
+| Core requirement | Where it lives |
+|---|---|
+| EnergyPlus simulation via a Python bridge | `eco_loop/sim_env.py` — in-process `pyenergyplus` C API, not a subprocess |
+| Open-source LLM, locally hosted | Ollama `llama3.2:3b` via an OpenAI-compatible endpoint (`eco_loop/agent_orchestrator.py`) |
+| MCP server exposing agentic tools | `eco_loop/mcp_tools.py` — FastMCP, 6 tools over streamable HTTP |
+| Tools parse files & extract runtime errors | `read_error_logs` tails live `eplusout.err` with a hard cap |
+| **Feedback** — continuous streamed metrics | Sensors read **every zone timestep** (672/week): zone temps, MRT, RH, occupancy, PMV, facility HVAC power |
+| **Reasoning** — comfort, demand, carbon | PMV band `[-0.5, +0.5]`, occupancy state, and `get_grid_carbon_forecast` |
+| **Control actions** — dynamic setpoints | `apply_hvac_setpoints`, validated server-side |
+| **Forward injection** into the *active* instance | `set_actuator_value` on `Zone Temperature Control`, re-asserted every timestep — no restart, no IDF rewrite |
+| Quantifiable savings | −8.5 % summer / −3.7 % winter, with comfort scored identically for both runs |
+
+Deliverables 1–4 are in this repo (source, `.idf` models, dashboard + committed
+results, architecture doc). The demonstration video and presentation are
+submitted separately.
+
 ## Verified results
 
 End-to-end on EnergyPlus 26.1.0 + Ollama `llama3.2:3b`, `5ZoneAirCooled.idf`
