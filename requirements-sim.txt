@@ -18,7 +18,6 @@ python-dotenv>=1.0.0
 requests>=2.31.0
 
 # --- Deck generation (optional) --------------------------------------------
-# python-pptx>=1.0.0      # uncomment to rebuild deck/ from the template
 # matplotlib>=3.7.0
 
 # NOTE: `pyenergyplus` is NOT a PyPI package. It ships inside the EnergyPlus

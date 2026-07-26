@@ -36,8 +36,4 @@ outputs/*/*
 # Scratch/probe models (single-day sanity checks, not deliverables)
 assets/model_????_????_probe.idf
 
-# Deck QA renders (regenerate with deck/export.py)
-deck/shots/
 
-# Reference deck supplied for styling only, not a project artefact
-deck/gamma.pptx
