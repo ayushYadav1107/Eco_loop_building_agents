@@ -192,6 +192,19 @@ st.markdown(
       .stApp, .stApp p, .stApp li, .stApp span, .stApp label, .stApp div {{
         color: {PALETTE['text']}; font-family: {FONT_UI};
       }}
+      /* Streamlit draws its chevrons and check marks as Material Symbols
+         *ligatures*: the element's text really is "keyboard_arrow_right", and
+         the icon font turns it into a glyph. The broad rule above swept those
+         spans up, so the ligature stopped resolving and the raw word rendered
+         on top of the label. Icons keep their own font, always. */
+      [data-testid="stIconMaterial"],
+      .material-icons, .material-icons-outlined,
+      span[class*="material-symbols"], i[class*="material"] {{
+        font-family: 'Material Symbols Rounded', 'Material Icons' !important;
+        font-feature-settings: 'liga' !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+      }}
       .stApp p, .stApp li {{ font-size: 1rem; line-height: 1.62; }}
 
       h1 {{
