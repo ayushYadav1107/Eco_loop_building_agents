@@ -5,8 +5,9 @@ open-source LLM supplies the judgement, and the Model Context Protocol carries
 every reading and every command between them — *while the simulation is still
 running*.
 
-[**▶ Live dashboard**](https://eco-loop-agents.streamlit.app/) ·
-[Architecture](ARCHITECTURE.md) ·
+[**▶ Watch the demo**](https://www.loom.com/share/cd6b6eea292747a3bbe7087e8b16ab78) ·
+[**Live dashboard**](https://eco-loop-agents.streamlit.app/) ·
+[Architecture](ARCHITECTURE.md)
 
 | | Baseline schedule | AI closed loop | |
 |---|---|---|---|
@@ -29,6 +30,13 @@ temperature 0, so repeated runs return identical totals.
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full design rationale
 (tool-calling bridge, latency management, log handling, safety envelope) and
 the tuning findings behind these numbers.
+
+## Demo
+
+**[▶ Watch the project demo on Loom](https://www.loom.com/share/cd6b6eea292747a3bbe7087e8b16ab78)**
+
+A walkthrough of the closed loop running against EnergyPlus, and the resulting
+savings. To reproduce what it covers, follow [Quickstart](#quickstart).
 
 ## Directory structure
 
