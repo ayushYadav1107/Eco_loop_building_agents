@@ -7,8 +7,10 @@ __pycache__/
 .venv/
 venv/
 
-# Streamlit
-.streamlit/
+# Streamlit - ignore local state but keep the committed theme/server config,
+# which pins a deterministic starting theme for the dashboard.
+.streamlit/*
+!.streamlit/config.toml
 
 # OS
 .DS_Store
